@@ -1,0 +1,8 @@
+com.glasscast.sender:style/Theme.GlassCast = 0x7f020000
+com.glasscast.sender:color/glasscast_surface = 0x7f010005
+com.glasscast.sender:color/glasscast_primary = 0x7f010003
+com.glasscast.sender:color/glasscast_muted = 0x7f010002
+com.glasscast.sender:color/glasscast_primary_dark = 0x7f010004
+com.glasscast.sender:color/glasscast_danger = 0x7f010001
+com.glasscast.sender:color/glasscast_text = 0x7f010006
+com.glasscast.sender:color/glasscast_background = 0x7f010000

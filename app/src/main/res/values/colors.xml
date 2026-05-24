@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="glasscast_background">#101114</color>
+    <color name="glasscast_surface">#1B1D22</color>
+    <color name="glasscast_text">#F7F8FA</color>
+    <color name="glasscast_muted">#B8BDC7</color>
+    <color name="glasscast_primary">#34D399</color>
+    <color name="glasscast_primary_dark">#059669</color>
+    <color name="glasscast_danger">#F97373</color>
+</resources>

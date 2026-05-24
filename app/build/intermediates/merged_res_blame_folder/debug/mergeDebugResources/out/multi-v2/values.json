@@ -1,0 +1,45 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.glasscast.sender.app-mergeDebugResources-2:/values/values.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\Andrey\\AndroidStudioProjects\\GlassCast\\app\\src\\main\\res\\values\\styles.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "9",
+                        "endColumns": "12",
+                        "endOffsets": "579"
+                    },
+                    "to": {
+                        "startLines": "9",
+                        "startColumns": "4",
+                        "startOffsets": "421",
+                        "endLines": "16",
+                        "endColumns": "12",
+                        "endOffsets": "945"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Andrey\\AndroidStudioProjects\\GlassCast\\app\\src\\main\\res\\values\\colors.xml",
+                    "from": {
+                        "startLines": "2,8,5,6,7,3,4",
+                        "startColumns": "4,4,4,4,4,4,4",
+                        "startOffsets": "55,370,211,261,313,110,162",
+                        "endColumns": "54,50,49,51,56,51,48",
+                        "endOffsets": "105,416,256,308,365,157,206"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8",
+                        "startColumns": "4,4,4,4,4,4,4",
+                        "startOffsets": "55,110,161,211,263,320,372",
+                        "endColumns": "54,50,49,51,56,51,48",
+                        "endOffsets": "105,156,206,258,315,367,416"
+                    }
+                }
+            ]
+        }
+    ]
+}
