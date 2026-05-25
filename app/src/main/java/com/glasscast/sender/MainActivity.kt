@@ -24,7 +24,6 @@ import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -44,7 +43,6 @@ class MainActivity : Activity() {
     private lateinit var codeInput: EditText
     private lateinit var urlInput: EditText
     private lateinit var primaryButton: Button
-    private lateinit var autoCastCheck: CheckBox
     private lateinit var sessionSummary: TextView
     private lateinit var readySummary: TextView
     private lateinit var readyCard: TextView
@@ -69,6 +67,7 @@ class MainActivity : Activity() {
     private var lastResponse = ""
     private var localVideoUri: Uri? = null
     private var localVideoUrl: String? = null
+    private var localVideoHealthUrl: String? = null
     private var localVideoName = ""
     private var localVideoLength = -1L
     private var openedFromShare = false
@@ -99,7 +98,6 @@ class MainActivity : Activity() {
         buildUi()
 
         setSessionCode(prefs.getString(KEY_SESSION_CODE, "").orEmpty())
-        autoCastCheck.isChecked = prefs.getBoolean(KEY_AUTO_CAST, false)
         updateSessionSummary()
         showStatus("Ready")
         handleIncomingIntent(intent)
@@ -124,7 +122,10 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         if (isFinishing) {
-            localVideoServer.stop()
+            if (ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+                localVideoServer.stop()
+                LocalVideoKeepAliveService.stop(this)
+            }
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         super.onDestroy()
@@ -134,6 +135,10 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != PICK_LOCAL_VIDEO_REQUEST || resultCode != RESULT_OK) return
+        if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            showUnsupportedShareType()
+            return
+        }
         val uri = data?.data
         if (uri == null) {
             showStatus("Could not open selected video", isError = true)
@@ -225,18 +230,6 @@ class MainActivity : Activity() {
         content.addView(codeInput)
         content.addView(button("Save or Pair") { saveSessionCode() })
 
-        autoCastCheck = CheckBox(this).apply {
-            text = "Auto-cast shared links"
-            setTextColor(Color.WHITE)
-            textSize = 16f
-            buttonTintList = android.content.res.ColorStateList.valueOf(color(PRIMARY))
-            setPadding(0, dp(12), 0, 0)
-            setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(KEY_AUTO_CAST, isChecked).apply()
-            }
-        }
-        content.addView(autoCastCheck)
-
         content.addView(label("Video URL"))
         content.addView(helper("Paste or share a YouTube link, supported video page, or direct video URL."))
         urlInput = input("https://www.youtube.com/watch?v=...").apply {
@@ -258,16 +251,23 @@ class MainActivity : Activity() {
         primaryButton = button("Cast Video", large = true) { castVideo() }
         content.addView(primaryButton)
 
-        localVideoButton = button("Cast Local Video", large = true) { castLocalVideoOrPick() }
-        content.addView(localVideoButton)
-        localVideoStatusText = TextView(this).apply {
-            text = "Your phone and glasses must be on the same Wi-Fi network.\nKeep this phone nearby while the video is playing."
-            setTextColor(color(MUTED))
-            textSize = 14f
-            setPadding(0, dp(8), 0, dp(2))
+        if (ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            localVideoButton = button("Cast Local Video", large = true) { castLocalVideoOrPick() }
+            content.addView(localVideoButton)
+            content.addView(button("Open Health URL") { openLocalHealthUrl() })
+            content.addView(button("Copy Health URL") { copyLocalHealthUrl() })
+            content.addView(button("Open Video URL") { openLocalVideoUrl() })
+            content.addView(button("Copy Video URL") { copyLocalVideoUrl() })
+            content.addView(button("Stop Local Video") { stopLocalVideoServing() })
+            localVideoStatusText = TextView(this).apply {
+                text = ""
+                setTextColor(color(MUTED))
+                textSize = 14f
+                setPadding(0, dp(8), 0, dp(2))
+            }
+            content.addView(localVideoStatusText)
+            content.addView(localVideoDebugSection())
         }
-        content.addView(localVideoStatusText)
-        content.addView(localVideoDebugSection())
 
         content.addView(TextView(this).apply {
             text = "Timeline"
@@ -517,10 +517,7 @@ class MainActivity : Activity() {
                     "Use a direct YouTube watch or share link. Some private, restricted, age-gated, region-blocked, or non-embeddable videos may not play.",
                     "",
                     "Live video timeline is unavailable",
-                    "Live streams may not have a normal timeline. Play/Pause and Stop may still work.",
-                    "",
-                    "Local phone videos do not cast",
-                    "Make sure this phone and the glasses are on the same Wi-Fi network. Keep this phone nearby while the video is playing."
+                    "Live streams may not have a normal timeline. Play/Pause and Stop may still work."
                 ),
                 emptyList()
             ))
@@ -657,6 +654,61 @@ class MainActivity : Activity() {
         setupCopyStatusText.text = "Receiver URL copied."
     }
 
+    private fun copyLocalHealthUrl() {
+        val url = localVideoHealthUrl
+        if (url.isNullOrBlank()) {
+            showStatus("Start local video first.", isError = true)
+            return
+        }
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("GlassCast health URL", url))
+        showStatus("Health URL copied.")
+    }
+
+    private fun openLocalHealthUrl() {
+        val url = localVideoHealthUrl
+        if (url.isNullOrBlank()) {
+            showStatus("Start local video first.", isError = true)
+            return
+        }
+        openExternalUrl(url)
+    }
+
+    private fun copyLocalVideoUrl() {
+        val url = localVideoUrl
+        if (url.isNullOrBlank()) {
+            showStatus("Start local video first.", isError = true)
+            return
+        }
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("GlassCast video URL", url))
+        showStatus("Video URL copied.")
+    }
+
+    private fun openLocalVideoUrl() {
+        val url = localVideoUrl
+        if (url.isNullOrBlank()) {
+            showStatus("Start local video first.", isError = true)
+            return
+        }
+        openExternalUrl(url)
+    }
+
+    private fun stopLocalVideoServing() {
+        localVideoServer.stop()
+        LocalVideoKeepAliveService.stop(this)
+        localVideoUrl = null
+        localVideoHealthUrl = null
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        updateLocalVideoStatus(
+            mainStatus = "Local video server stopped.\nIf the receiver cannot play local video, make sure your phone and glasses are on the same Wi-Fi network.",
+            servingUrl = null,
+            healthUrl = null,
+            castingUrl = null
+        )
+        showStatus("Local video server stopped.")
+    }
+
     private fun metaAiFallbackActions(): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -750,7 +802,11 @@ class MainActivity : Activity() {
         Log.d(TAG, "raw input: $rawInput")
         Log.d(TAG, "sanitized URL: $sanitizedUrl")
         if (isLocalFileUrl(sanitizedUrl)) {
-            showLocalFileMustBeServed()
+            showUnsupportedShareType()
+            return
+        }
+        if (localVideoUri != null && localVideoUrl != null && sanitizedUrl != localVideoUrl && isLocalFileUrl(videoUrl)) {
+            showUnsupportedShareType()
             return
         }
         videoUrl = sanitizedUrl
@@ -768,6 +824,10 @@ class MainActivity : Activity() {
     }
 
     private fun castLocalVideoOrPick() {
+        if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            showUnsupportedShareType()
+            return
+        }
         clearInputFocusAndHideKeyboard()
         if (localVideoUri == null) {
             openLocalVideoPicker()
@@ -777,45 +837,58 @@ class MainActivity : Activity() {
     }
 
     private fun openLocalVideoPicker() {
+        if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            showUnsupportedShareType()
+            return
+        }
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "video/*"
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         }
         runCatching { startActivityForResult(intent, PICK_LOCAL_VIDEO_REQUEST) }
-            .onFailure { showStatus("Could not open video picker", isError = true) }
+            .onFailure {
+                Log.e(TAG, "Could not open video picker", it)
+                showStatus("Could not open video picker", isError = true)
+            }
     }
 
     private fun prepareLocalVideo(uri: Uri, castAfterReady: Boolean, openedFromLocalShare: Boolean) {
-        localVideoUri = uri
-        openedFromShare = openedFromLocalShare
-        primaryButton.text = "Cast Video"
-        localVideoButton.text = "Cast Local Video"
-        localVideoUrl = null
-        localVideoName = displayName(uri) ?: "Local video"
-        localVideoLength = -1L
-
-        if (!castAfterReady) {
-            updateLocalVideoStatus(
-                mainStatus = "Serving local video from this phone.\nKeep phone and glasses on the same Wi-Fi.",
-                servingUrl = null,
-                castingUrl = null
-            )
-            showStatus("Ready to cast local video.")
-            updateSessionSummary()
+        if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            showUnsupportedShareType()
             return
         }
+        try {
+            localVideoUri = uri
+            openedFromShare = openedFromLocalShare
+            primaryButton.text = "Cast Video"
+            localVideoButton.text = "Cast Local Video"
+            localVideoUrl = null
+            localVideoHealthUrl = null
+            localVideoName = displayName(uri) ?: "Local video"
+            localVideoLength = -1L
 
-        serveLocalVideo(uri) ?: return
+            serveLocalVideo(uri) ?: return
 
-        castLocalVideo()
+            if (castAfterReady) {
+                castLocalVideo()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not prepare local video", e)
+            showStatus("Could not prepare local video", isError = true)
+        }
     }
 
     private fun serveLocalVideo(uri: Uri): String? {
+        if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            showUnsupportedShareType()
+            return null
+        }
         val result = runCatching { localVideoServer.serve(uri) }
             .getOrElse {
-                localVideoUri = null
+                Log.e(TAG, "Could not start local video stream", it)
                 localVideoUrl = null
+                localVideoHealthUrl = null
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 localVideoStatusText.text = "Could not start local video stream. Make sure your phone and glasses are on the same network."
                 showStatus("Could not start local video stream. Make sure your phone and glasses are on the same network.", isError = true)
@@ -823,14 +896,15 @@ class MainActivity : Activity() {
             }
 
         localVideoUrl = result.url
+        localVideoHealthUrl = result.healthUrl
         localVideoName = result.displayName
         localVideoLength = result.contentLength
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // TODO: Move LocalVideoServer into a foreground service with a persistent
-        // notification before relying on it for long background casting sessions.
+        LocalVideoKeepAliveService.start(this)
         updateLocalVideoStatus(
-            mainStatus = "Serving local video from this phone.\nKeep phone and glasses on the same Wi-Fi.",
+            mainStatus = "Open Video URL in Chrome before testing glasses.",
             servingUrl = result.url,
+            healthUrl = result.healthUrl,
             castingUrl = null
         )
         showStatus("Ready to cast local video.")
@@ -839,33 +913,48 @@ class MainActivity : Activity() {
     }
 
     private fun castLocalVideo() {
-        clearInputFocusAndHideKeyboard()
-        val uri = localVideoUri
-        if (uri == null) {
-            openLocalVideoPicker()
+        if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            showUnsupportedShareType()
             return
         }
+        try {
+            clearInputFocusAndHideKeyboard()
+            val uri = localVideoUri
+            if (uri == null) {
+                openLocalVideoPicker()
+                return
+            }
 
-        val serverUrl = localVideoUrl ?: run {
-            serveLocalVideo(uri)
-        } ?: return
+            val serverUrl = localVideoUrl ?: run {
+                serveLocalVideo(uri)
+            } ?: return
 
-        val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
-        videoUrl = serverUrl
-        updateLastSentUrl(serverUrl)
-        updateLocalVideoStatus(
-            mainStatus = "Cast sent.\nKeep phone and glasses on the same Wi-Fi.",
-            servingUrl = serverUrl,
-            castingUrl = serverUrl
-        )
+            if (isLocalFileUrl(serverUrl)) {
+                showUnsupportedShareType()
+                return
+            }
 
-        postJson(
-            JSONObject()
-                .put("code", code)
-                .put("type", "cast")
-                .put("url", serverUrl),
-            successMessage = "Cast sent"
-        )
+            val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
+            videoUrl = serverUrl
+            updateLastSentUrl(serverUrl)
+            updateLocalVideoStatus(
+                mainStatus = "Cast sent.\nKeep phone and glasses on the same Wi-Fi.",
+                servingUrl = serverUrl,
+                healthUrl = localVideoHealthUrl,
+                castingUrl = serverUrl
+            )
+
+            postJson(
+                JSONObject()
+                    .put("code", code)
+                    .put("type", "cast")
+                    .put("url", serverUrl),
+                successMessage = "Cast sent"
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not cast local video", e)
+            showStatus("Could not cast local video", isError = true)
+        }
     }
 
     private fun sendPlaybackCommand(command: String) {
@@ -1260,17 +1349,6 @@ class MainActivity : Activity() {
     private fun handleSendIntent(intent: Intent) {
         val type = intent.type.orEmpty()
         val sharedStreamUri = streamUri(intent)
-        if (type.startsWith("video/", ignoreCase = true) || isContentUri(sharedStreamUri)) {
-            val uri = sharedStreamUri
-            if (uri == null) {
-                showStatus("Could not open shared video", isError = true)
-                return
-            }
-            takeReadPermission(uri, intent.flags)
-            prepareLocalVideo(uri, castAfterReady = false, openedFromLocalShare = true)
-            return
-        }
-
         if (type.equals("text/plain", ignoreCase = true)) {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?: intent.getStringExtra(Intent.EXTRA_SUBJECT)
@@ -1281,16 +1359,36 @@ class MainActivity : Activity() {
             if (url.isBlank()) {
                 showStatus("Missing URL", isError = true)
             } else if (isLocalFileUrl(url)) {
+                if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+                    showUnsupportedShareType()
+                    return
+                }
                 val uri = Uri.parse(url)
                 if (isContentUri(uri)) {
                     takeReadPermission(uri, intent.flags)
                     prepareLocalVideo(uri, castAfterReady = false, openedFromLocalShare = true)
                 } else {
-                    showLocalFileMustBeServed()
+                    showUnsupportedShareType()
                 }
             } else {
                 useSharedUrl(url)
             }
+            return
+        }
+
+        if (type.startsWith("video/", ignoreCase = true) || isContentUri(sharedStreamUri)) {
+            if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+                showUnsupportedShareType()
+                return
+            }
+            val uri = sharedStreamUri
+            if (uri == null) {
+                showUnsupportedShareType()
+                return
+            }
+            takeReadPermission(uri, intent.flags)
+            prepareLocalVideo(uri, castAfterReady = false, openedFromLocalShare = true)
+            return
         }
     }
 
@@ -1328,9 +1426,6 @@ class MainActivity : Activity() {
 
         setSessionCode(code)
         showStatus("Ready to cast")
-        if (autoCastCheck.isChecked) {
-            castVideo()
-        }
     }
 
     private fun sanitizeVideoUrl(input: String): String {
@@ -1385,9 +1480,7 @@ class MainActivity : Activity() {
             sessionSummary.text = "Paired with session $code"
             readyCard.text = "Ready to cast"
             readyCard.visibility = View.VISIBLE
-            readySummary.text = if (localVideoUri != null) {
-                "Ready to cast local video."
-            } else if (openedFromShare && videoUrl.isNotBlank()) {
+            readySummary.text = if (openedFromShare && videoUrl.isNotBlank()) {
                 "Session saved. Ready to cast shared video."
             } else {
                 "Session saved."
@@ -1413,23 +1506,35 @@ class MainActivity : Activity() {
     }
 
     private fun showLocalFileMustBeServed() {
-        val message = "Local files must be served from this phone before casting."
-        showStatus(message, isError = true)
-        localVideoStatusText.text = message
+        showUnsupportedShareType()
     }
 
-    private fun updateLocalVideoStatus(mainStatus: String, servingUrl: String?, castingUrl: String?) {
+    private fun showUnsupportedShareType() {
+        showStatus("This share type is not supported yet.", isError = true)
+    }
+
+    private fun updateLocalVideoStatus(
+        mainStatus: String,
+        servingUrl: String?,
+        healthUrl: String?,
+        castingUrl: String?
+    ) {
         val lengthWarning = if (localVideoLength < 0) {
             "\nVideo length is unknown, so seeking may be limited."
         } else {
             ""
         }
-        localVideoStatusText.text = mainStatus
+        val healthSummary = healthUrl?.let { "\nHealth URL: $it" }.orEmpty()
+        val videoSummary = servingUrl?.let { "\nVideo URL: $it" }.orEmpty()
+        localVideoStatusText.text = "$mainStatus\nIf the receiver cannot play local video, make sure your phone and glasses are on the same Wi-Fi network.$healthSummary$videoSummary"
         localVideoDebugText.text = buildString {
             append("Selected local video: ")
             append(if (localVideoName.isBlank()) "None" else localVideoName)
             append('\n')
-            append("Serving local video URL: ")
+            append("Health URL: ")
+            append(healthUrl ?: "Not serving yet")
+            append('\n')
+            append("Video URL: ")
             append(servingUrl ?: "Not serving yet")
             append('\n')
             append("Casting local video URL: ")
@@ -1583,12 +1688,10 @@ class MainActivity : Activity() {
             "The receiver URL will not open",
             "The session code does not work",
             "YouTube video does not play",
-            "Live video timeline is unavailable",
-            "Local phone videos do not cast"
+            "Live video timeline is unavailable"
         )
         private const val PREFS_NAME = "glasscast"
         private const val KEY_SESSION_CODE = "session_code"
-        private const val KEY_AUTO_CAST = "auto_cast_shared_links"
         private const val PLAYBACK_POLL_MS = 1_000L
         private const val SCRUB_RELEASE_DELAY_MS = 500L
         private const val SEEK_POSITION_IGNORE_MS = 800L

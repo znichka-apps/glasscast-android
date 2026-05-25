@@ -11,92 +11,101 @@
 11    <uses-permission android:name="android.permission.INTERNET" />
 11-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:4:5-67
 11-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:4:22-64
-12
-13    <queries>
-13-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:6:5-8:15
-14        <package android:name="com.facebook.stella" />
-14-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:7:9-55
-14-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:7:18-52
-15    </queries>
-16
-17    <application
-17-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:10:5-43:19
-18        android:allowBackup="true"
-18-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:11:9-35
-19        android:debuggable="true"
-20        android:extractNativeLibs="false"
-21        android:label="GlassCast"
-21-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:12:9-34
-22        android:supportsRtl="true"
-22-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:13:9-35
-23        android:testOnly="true"
-24        android:theme="@style/Theme.GlassCast" >
-24-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:14:9-47
-25        <activity
-25-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:15:9-42:20
-26            android:name="com.glasscast.sender.MainActivity"
-26-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:16:13-41
-27            android:exported="true" >
-27-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:17:13-36
-28            <intent-filter>
-28-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:18:13-21:29
-29                <action android:name="android.intent.action.MAIN" />
-29-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:19:17-69
-29-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:19:25-66
-30
-31                <category android:name="android.intent.category.LAUNCHER" />
-31-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:20:17-77
-31-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:20:27-74
-32            </intent-filter>
-33            <intent-filter>
-33-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:23:13-27:29
-34                <action android:name="android.intent.action.SEND" />
-34-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:24:17-69
-34-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:24:25-66
-35
-36                <category android:name="android.intent.category.DEFAULT" />
-36-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:17-76
-36-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:27-73
-37
-38                <data android:mimeType="text/plain" />
-38-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:26:17-55
-38-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:26:23-52
-39            </intent-filter>
-40            <intent-filter>
-40-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:29:13-33:29
-41                <action android:name="android.intent.action.SEND" />
-41-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:24:17-69
-41-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:24:25-66
-42
-43                <category android:name="android.intent.category.DEFAULT" />
-43-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:17-76
-43-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:27-73
-44
-45                <data android:mimeType="video/*" />
-45-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:26:17-55
-45-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:26:23-52
-46            </intent-filter>
-47            <intent-filter>
-47-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:35:13-41:29
-48                <action android:name="android.intent.action.VIEW" />
-48-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:36:17-69
-48-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:36:25-66
+12    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+12-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:5:5-76
+12-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:5:22-73
+13    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+13-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:6:5-76
+13-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:6:22-73
+14    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+14-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:7:5-77
+14-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:7:22-74
+15    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+15-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:8:5-87
+15-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:8:22-84
+16    <uses-permission android:name="android.permission.WAKE_LOCK" />
+16-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:9:5-68
+16-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:9:22-65
+17
+18    <queries>
+18-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:11:5-13:15
+19        <package android:name="com.facebook.stella" />
+19-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:12:9-55
+19-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:12:18-52
+20    </queries>
+21
+22    <application
+22-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:15:5-47:19
+23        android:allowBackup="true"
+23-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:16:9-35
+24        android:debuggable="true"
+25        android:extractNativeLibs="false"
+26        android:label="GlassCast"
+26-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:17:9-34
+27        android:supportsRtl="true"
+27-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:18:9-35
+28        android:theme="@style/Theme.GlassCast" >
+28-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:19:9-47
+29        <activity
+29-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:20:9-41:20
+30            android:name="com.glasscast.sender.MainActivity"
+30-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:21:13-41
+31            android:exported="true" >
+31-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:22:13-36
+32            <intent-filter>
+32-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:23:13-26:29
+33                <action android:name="android.intent.action.MAIN" />
+33-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:24:17-69
+33-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:24:25-66
+34
+35                <category android:name="android.intent.category.LAUNCHER" />
+35-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:17-77
+35-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:27-74
+36            </intent-filter>
+37            <intent-filter>
+37-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:28:13-32:29
+38                <action android:name="android.intent.action.SEND" />
+38-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:29:17-69
+38-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:29:25-66
+39
+40                <category android:name="android.intent.category.DEFAULT" />
+40-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:30:17-76
+40-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:30:27-73
+41
+42                <data android:mimeType="text/plain" />
+42-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:31:17-55
+42-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:31:23-52
+43            </intent-filter>
+44            <intent-filter>
+44-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:34:13-40:29
+45                <action android:name="android.intent.action.VIEW" />
+45-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:35:17-69
+45-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:35:25-66
+46
+47                <category android:name="android.intent.category.DEFAULT" />
+47-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:30:17-76
+47-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:30:27-73
+48                <category android:name="android.intent.category.BROWSABLE" />
+48-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:37:17-78
+48-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:37:27-75
 49
-50                <category android:name="android.intent.category.DEFAULT" />
-50-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:17-76
-50-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:25:27-73
-51                <category android:name="android.intent.category.BROWSABLE" />
-51-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:38:17-78
-51-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:38:27-75
-52
-53                <data android:scheme="http" />
-53-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:26:17-55
-53-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:39:23-44
-54                <data android:scheme="https" />
-54-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:26:17-55
-54-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:39:23-44
-55            </intent-filter>
-56        </activity>
-57    </application>
-58
-59</manifest>
+50                <data android:scheme="http" />
+50-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:31:17-55
+50-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:38:23-44
+51                <data android:scheme="https" />
+51-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:31:17-55
+51-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:38:23-44
+52            </intent-filter>
+53        </activity>
+54
+55        <service
+55-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:43:9-46:56
+56            android:name="com.glasscast.sender.LocalVideoKeepAliveService"
+56-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:44:13-55
+57            android:exported="false"
+57-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:45:13-37
+58            android:foregroundServiceType="dataSync" />
+58-->C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\AndroidManifest.xml:46:13-53
+59    </application>
+60
+61</manifest>
