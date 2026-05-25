@@ -22,6 +22,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -46,6 +47,7 @@ class MainActivity : Activity() {
     private lateinit var autoCastCheck: CheckBox
     private lateinit var sessionSummary: TextView
     private lateinit var readySummary: TextView
+    private lateinit var readyCard: TextView
     private lateinit var nowPlayingText: TextView
     private lateinit var currentTimeText: TextView
     private lateinit var durationText: TextView
@@ -60,6 +62,7 @@ class MainActivity : Activity() {
     private lateinit var manualFallbackBody: LinearLayout
     private lateinit var localVideoButton: Button
     private lateinit var localVideoStatusText: TextView
+    private lateinit var localVideoDebugText: TextView
 
     private var videoUrl = ""
     private var lastSentUrl = ""
@@ -188,6 +191,24 @@ class MainActivity : Activity() {
         }
         content.addView(readySummary)
 
+        readyCard = TextView(this).apply {
+            text = "Ready to cast"
+            setTextColor(Color.BLACK)
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setBackgroundColor(color(SUCCESS))
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(10)
+            }
+        }
+        content.addView(readyCard)
+
         codeInput = input("ABC123").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
             imeOptions = EditorInfo.IME_ACTION_NEXT
@@ -202,11 +223,7 @@ class MainActivity : Activity() {
             })
         }
         content.addView(codeInput)
-        content.addView(button("Save or Pair") {
-            sessionCodeOrNull()
-                ?.let { showStatus("Ready") }
-                ?: showStatus("Missing session code", isError = true)
-        })
+        content.addView(button("Save or Pair") { saveSessionCode() })
 
         autoCastCheck = CheckBox(this).apply {
             text = "Auto-cast shared links"
@@ -250,6 +267,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(8), 0, dp(2))
         }
         content.addView(localVideoStatusText)
+        content.addView(localVideoDebugSection())
 
         content.addView(TextView(this).apply {
             text = "Timeline"
@@ -614,6 +632,25 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun localVideoDebugSection(): LinearLayout {
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, dp(4), 0, dp(2))
+        }
+        localVideoDebugText = debugText("No local video selected.")
+        body.addView(localVideoDebugText)
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val header = button("Debug details") {
+                body.visibility = if (body.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            }
+            addView(header)
+            addView(body)
+        }
+    }
+
     private fun copyReceiverUrl() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("GlassCast receiver URL", RECEIVER_URL))
@@ -691,7 +728,22 @@ class MainActivity : Activity() {
             .onFailure { showStatus("No browser found", isError = true) }
     }
 
+    private fun saveSessionCode() {
+        val code = sessionCodeOrNull()
+        if (code == null) {
+            showStatus("Enter the session code from your glasses.", isError = true)
+            return
+        }
+
+        showStatus("Paired with session $code", isSuccess = true)
+        readyCard.text = "Ready to cast"
+        readyCard.visibility = View.VISIBLE
+        readySummary.text = "Session saved. Open GlassCast on your glasses."
+        restartPlaybackPolling()
+    }
+
     private fun castVideo() {
+        clearInputFocusAndHideKeyboard()
         val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
         val rawInput = urlInput.text.toString()
         val sanitizedUrl = sanitizeVideoUrl(rawInput)
@@ -710,11 +762,13 @@ class MainActivity : Activity() {
             JSONObject()
                 .put("code", code)
                 .put("type", "cast")
-                .put("url", sanitizedUrl)
+                .put("url", sanitizedUrl),
+            successMessage = "Cast sent"
         )
     }
 
     private fun castLocalVideoOrPick() {
+        clearInputFocusAndHideKeyboard()
         if (localVideoUri == null) {
             openLocalVideoPicker()
             return
@@ -742,7 +796,11 @@ class MainActivity : Activity() {
         localVideoLength = -1L
 
         if (!castAfterReady) {
-            localVideoStatusText.text = "Selected local video: $localVideoName\nReady to cast local video."
+            updateLocalVideoStatus(
+                mainStatus = "Serving local video from this phone.\nKeep phone and glasses on the same Wi-Fi.",
+                servingUrl = null,
+                castingUrl = null
+            )
             showStatus("Ready to cast local video.")
             updateSessionSummary()
             return
@@ -770,15 +828,18 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // TODO: Move LocalVideoServer into a foreground service with a persistent
         // notification before relying on it for long background casting sessions.
-        val lengthWarning = if (localVideoLength < 0) "\nVideo length is unknown, so seeking may be limited." else ""
-        localVideoStatusText.text =
-            "Selected local video: $localVideoName\nServing local video: ${result.url}\nReady to cast local video.\nYour phone and glasses must be on the same Wi-Fi network.\nKeep this phone nearby while the video is playing.$lengthWarning"
+        updateLocalVideoStatus(
+            mainStatus = "Serving local video from this phone.\nKeep phone and glasses on the same Wi-Fi.",
+            servingUrl = result.url,
+            castingUrl = null
+        )
         showStatus("Ready to cast local video.")
         updateSessionSummary()
         return result.url
     }
 
     private fun castLocalVideo() {
+        clearInputFocusAndHideKeyboard()
         val uri = localVideoUri
         if (uri == null) {
             openLocalVideoPicker()
@@ -792,29 +853,36 @@ class MainActivity : Activity() {
         val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
         videoUrl = serverUrl
         updateLastSentUrl(serverUrl)
-        localVideoStatusText.text =
-            "Selected local video: $localVideoName\nServing local video: $serverUrl\nCasting local video URL: $serverUrl\nYour phone and glasses must be on the same Wi-Fi network.\nKeep this phone nearby while the video is playing."
+        updateLocalVideoStatus(
+            mainStatus = "Cast sent.\nKeep phone and glasses on the same Wi-Fi.",
+            servingUrl = serverUrl,
+            castingUrl = serverUrl
+        )
 
         postJson(
             JSONObject()
                 .put("code", code)
                 .put("type", "cast")
-                .put("url", serverUrl)
+                .put("url", serverUrl),
+            successMessage = "Cast sent"
         )
     }
 
     private fun sendPlaybackCommand(command: String) {
+        clearInputFocusAndHideKeyboard()
         val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
 
         postJson(
             JSONObject()
                 .put("code", code)
                 .put("type", "command")
-                .put("command", command)
+                .put("command", command),
+            successMessage = "Command sent"
         )
     }
 
     private fun sendSeekTo(seconds: Double) {
+        clearInputFocusAndHideKeyboard()
         val code = sessionCodeOrNull()
         if (code == null) {
             isUserScrubbing = false
@@ -832,7 +900,8 @@ class MainActivity : Activity() {
                 .put("code", code)
                 .put("type", "command")
                 .put("command", "seekTo")
-                .put("time", seconds)
+                .put("time", seconds),
+            successMessage = "Command sent"
         ) {
             pollHandler.postDelayed({
                 isUserScrubbing = false
@@ -841,11 +910,11 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun postJson(payload: JSONObject) {
-        postJson(payload, afterComplete = null)
+    private fun postJson(payload: JSONObject, successMessage: String = "Sent") {
+        postJson(payload, successMessage = successMessage, afterComplete = null)
     }
 
-    private fun postJson(payload: JSONObject, afterComplete: (() -> Unit)?) {
+    private fun postJson(payload: JSONObject, successMessage: String = "Sent", afterComplete: (() -> Unit)?) {
         showStatus("Sending...")
         val jsonBody = payload.toString()
         Log.d(TAG, "JSON body sent: $jsonBody")
@@ -871,7 +940,7 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         updateLastResponse(responseText)
                         if (it.isSuccessful) {
-                            showStatus("Sent")
+                            showStatus(successMessage, isSuccess = successMessage == "Cast sent")
                         } else {
                             showStatus(apiError(body, it.code), isError = true)
                         }
@@ -1247,6 +1316,7 @@ class MainActivity : Activity() {
         }
         openedFromShare = true
         setVideoUrl(url)
+        clearInputFocusAndHideKeyboard()
         primaryButton.text = "Cast Shared Video"
         updateSessionSummary()
 
@@ -1257,7 +1327,7 @@ class MainActivity : Activity() {
         }
 
         setSessionCode(code)
-        showStatus("Ready")
+        showStatus("Ready to cast")
         if (autoCastCheck.isChecked) {
             castVideo()
         }
@@ -1310,14 +1380,17 @@ class MainActivity : Activity() {
         if (code.isBlank()) {
             sessionSummary.text = "No saved session"
             readySummary.text = "Open https://glasscast.znichka.xyz and enter the receiver session code."
+            readyCard.visibility = View.GONE
         } else {
-            sessionSummary.text = "Session $code"
+            sessionSummary.text = "Paired with session $code"
+            readyCard.text = "Ready to cast"
+            readyCard.visibility = View.VISIBLE
             readySummary.text = if (localVideoUri != null) {
                 "Ready to cast local video."
             } else if (openedFromShare && videoUrl.isNotBlank()) {
-                "Ready to cast to session $code"
+                "Session saved. Ready to cast shared video."
             } else {
-                "Ready"
+                "Session saved."
             }
         }
     }
@@ -1343,6 +1416,26 @@ class MainActivity : Activity() {
         val message = "Local files must be served from this phone before casting."
         showStatus(message, isError = true)
         localVideoStatusText.text = message
+    }
+
+    private fun updateLocalVideoStatus(mainStatus: String, servingUrl: String?, castingUrl: String?) {
+        val lengthWarning = if (localVideoLength < 0) {
+            "\nVideo length is unknown, so seeking may be limited."
+        } else {
+            ""
+        }
+        localVideoStatusText.text = mainStatus
+        localVideoDebugText.text = buildString {
+            append("Selected local video: ")
+            append(if (localVideoName.isBlank()) "None" else localVideoName)
+            append('\n')
+            append("Serving local video URL: ")
+            append(servingUrl ?: "Not serving yet")
+            append('\n')
+            append("Casting local video URL: ")
+            append(castingUrl ?: "Not cast yet")
+            append(lengthWarning)
+        }
     }
 
     private fun takeReadPermission(uri: Uri, flags: Int) {
@@ -1411,7 +1504,10 @@ class MainActivity : Activity() {
             setTextColor(Color.BLACK)
             setBackgroundColor(color(if (large) PRIMARY else PRIMARY_DARK))
             setPadding(dp(10), dp(10), dp(10), dp(10))
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                clearInputFocusAndHideKeyboard()
+                onClick()
+            }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 if (large) dp(64) else dp(54)
@@ -1420,9 +1516,25 @@ class MainActivity : Activity() {
             }
         }
 
-    private fun showStatus(message: String, isError: Boolean = false) {
+    private fun clearInputFocusAndHideKeyboard() {
+        val focusedView = currentFocus
+        codeInput.clearFocus()
+        urlInput.clearFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow((focusedView ?: window.decorView).windowToken, 0)
+    }
+
+    private fun showStatus(message: String, isError: Boolean = false, isSuccess: Boolean = false) {
         statusText.text = message
-        statusText.setTextColor(color(if (isError) DANGER else MUTED))
+        statusText.setTextColor(
+            color(
+                when {
+                    isError -> DANGER
+                    isSuccess -> SUCCESS
+                    else -> MUTED
+                }
+            )
+        )
     }
 
     private fun updateLastSentUrl(url: String) {
@@ -1489,6 +1601,7 @@ class MainActivity : Activity() {
         private const val MUTED = "#B8BDC7"
         private const val PRIMARY = "#34D399"
         private const val PRIMARY_DARK = "#10B981"
+        private const val SUCCESS = "#34D399"
         private const val DANGER = "#F97373"
 
         private val URL_PATTERN = Regex("""https?://[^\s<>"']+""", RegexOption.IGNORE_CASE)
