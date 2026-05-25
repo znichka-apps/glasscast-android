@@ -51,6 +51,8 @@ class MainActivity : Activity() {
     private lateinit var durationText: TextView
     private lateinit var timelineSeekBar: SeekBar
     private lateinit var timelineStatusText: TextView
+    private lateinit var seekBackButton: Button
+    private lateinit var seekForwardButton: Button
     private lateinit var statusText: TextView
     private lateinit var lastSentUrlText: TextView
     private lateinit var lastResponseText: TextView
@@ -75,6 +77,7 @@ class MainActivity : Activity() {
     private var suppressUrlWatcher = false
     private var isPolling = false
     private var isUserScrubbing = false
+    private var timelineSeekAvailable = false
     private var timelineDurationSeconds = 0.0
     private var localScrubSeconds = 0.0
     private var ignorePlaybackPositionUntilMs = 0L
@@ -316,6 +319,11 @@ class MainActivity : Activity() {
                 }
 
                 override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    if (!timelineSeekAvailable) {
+                        isUserScrubbing = false
+                        showTimelineUnavailable(TIMELINE_UNAVAILABLE_FOR_PLAYER)
+                        return
+                    }
                     val seconds = clampTime(progressToSeconds(seekBar?.progress ?: 0), timelineDurationSeconds)
                     localScrubSeconds = seconds
                     currentTimeText.text = formatTime(seconds)
@@ -356,8 +364,11 @@ class MainActivity : Activity() {
         })
 
         content.addView(button("Play/Pause") { sendPlaybackCommand("playPause") })
-        content.addView(button("Seek -10s") { sendPlaybackCommand("seekBack") })
-        content.addView(button("Seek +10s") { sendPlaybackCommand("seekForward") })
+        seekBackButton = button("Seek -10s") { sendTimelineCommand("seekBack") }
+        content.addView(seekBackButton)
+        seekForwardButton = button("Seek +10s") { sendTimelineCommand("seekForward") }
+        content.addView(seekForwardButton)
+        setTimelineButtonsEnabled(false)
         content.addView(button("Stop") { sendPlaybackCommand("stop") })
 
         statusText = TextView(this).apply {
@@ -970,6 +981,14 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun sendTimelineCommand(command: String) {
+        if (!timelineSeekAvailable) {
+            showStatus(TIMELINE_UNAVAILABLE_FOR_PLAYER, isError = false)
+            return
+        }
+        sendPlaybackCommand(command)
+    }
+
     private fun sendSeekTo(seconds: Double) {
         clearInputFocusAndHideKeyboard()
         val code = sessionCodeOrNull()
@@ -977,9 +996,9 @@ class MainActivity : Activity() {
             isUserScrubbing = false
             return showStatus("Missing session code", isError = true)
         }
-        if (!isKnownDuration(timelineDurationSeconds)) {
+        if (!timelineSeekAvailable || !isKnownDuration(timelineDurationSeconds)) {
             isUserScrubbing = false
-            return showTimelineUnavailable("Timeline unavailable")
+            return showTimelineUnavailable(TIMELINE_UNAVAILABLE_FOR_PLAYER)
         }
 
         optimisticCurrentSeconds = clampTime(seconds, timelineDurationSeconds)
@@ -1130,9 +1149,14 @@ class MainActivity : Activity() {
                 ?: findString(json, "title", "videoTitle", "nowPlaying", "name")
         )
         val mode = sanitizePlainText(
-            findString(stateJson, "mode", "status", "playbackStatus", "state", "playerState")
-                ?: findString(json, "mode", "status", "playbackStatus", "state", "playerState")
+            findString(stateJson, "mode")
+                ?: findString(json, "mode")
+                ?: findString(stateJson, "status", "playbackStatus", "state", "playerState")
+                ?: findString(json, "status", "playbackStatus", "state", "playerState")
         )
+        val canSeek = findBoolean(stateJson, "canSeek") ?: findBoolean(json, "canSeek")
+        val timelineAvailable = findBoolean(stateJson, "timelineAvailable") ?: findBoolean(json, "timelineAvailable")
+        val controlsLimited = findBoolean(stateJson, "controlsLimited") ?: findBoolean(json, "controlsLimited")
         val playing = findBoolean(stateJson, "playing", "isPlaying", "paused")
             ?.let { if (stateJson.has("paused")) !it else it }
             ?: mode.equals("playing", ignoreCase = true)
@@ -1146,6 +1170,9 @@ class MainActivity : Activity() {
             duration = duration,
             playing = playing,
             mode = mode.orEmpty(),
+            canSeek = canSeek,
+            timelineAvailable = timelineAvailable,
+            controlsLimited = controlsLimited,
             title = title,
             url = url
         )
@@ -1154,18 +1181,20 @@ class MainActivity : Activity() {
     private fun applyPlaybackState(state: PlaybackState) {
         nowPlayingText.text = state.title?.takeIf { it.isNotBlank() } ?: "Now playing"
 
-        if (!isKnownDuration(state.duration)) {
-            val message = if (state.mode.equals("youtube", ignoreCase = true)) {
-                "Live or timeline unavailable"
+        if (!isTimelineSeekAvailable(state)) {
+            val message = if (state.mode.equals("youtube", ignoreCase = true) && !isKnownDuration(state.duration)) {
+                "Live / timeline unavailable"
             } else {
-                "Timeline unavailable"
+                TIMELINE_UNAVAILABLE_FOR_PLAYER
             }
             showTimelineUnavailable(message, durationLabel = if (state.playing) "LIVE" else "--:--")
             return
         }
 
+        timelineSeekAvailable = true
         timelineDurationSeconds = state.duration
         timelineSeekBar.isEnabled = true
+        setTimelineButtonsEnabled(true)
         timelineStatusText.text = ""
         durationText.text = formatTime(state.duration)
 
@@ -1181,7 +1210,14 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun isTimelineSeekAvailable(state: PlaybackState): Boolean =
+        !state.mode.equals("dailymotion", ignoreCase = true) &&
+            isKnownDuration(state.duration) &&
+            state.canSeek != false &&
+            state.timelineAvailable != false
+
     private fun showTimelineUnavailable(message: String, durationLabel: String = "--:--") {
+        timelineSeekAvailable = false
         timelineDurationSeconds = 0.0
         optimisticCurrentSeconds = null
         ignorePlaybackPositionUntilMs = 0L
@@ -1191,8 +1227,17 @@ class MainActivity : Activity() {
         }
         isUserScrubbing = false
         timelineSeekBar.isEnabled = false
+        setTimelineButtonsEnabled(false)
         durationText.text = durationLabel
         timelineStatusText.text = message
+    }
+
+    private fun setTimelineButtonsEnabled(enabled: Boolean) {
+        if (!::seekBackButton.isInitialized || !::seekForwardButton.isInitialized) return
+        listOf(seekBackButton, seekForwardButton).forEach { button ->
+            button.isEnabled = enabled
+            button.alpha = if (enabled) 1f else 0.45f
+        }
     }
 
     private fun progressToSeconds(progress: Int): Double {
@@ -1300,7 +1345,9 @@ class MainActivity : Activity() {
 
     private fun hasPlaybackFields(json: JSONObject): Boolean =
         findDouble(json, "currentTime", "current", "time", "position", "playedSeconds") != null ||
-            findDouble(json, "duration", "totalDuration", "length") != null
+            findDouble(json, "duration", "totalDuration", "length") != null ||
+            findString(json, "mode") != null ||
+            findBoolean(json, "canSeek", "timelineAvailable", "controlsLimited") != null
 
     private fun sanitizeTitle(value: String?): String? {
         val text = sanitizePlainText(value) ?: return null
@@ -1666,6 +1713,9 @@ class MainActivity : Activity() {
         val duration: Double,
         val playing: Boolean,
         val mode: String,
+        val canSeek: Boolean?,
+        val timelineAvailable: Boolean?,
+        val controlsLimited: Boolean?,
         val title: String?,
         val url: String?
     )
@@ -1696,6 +1746,7 @@ class MainActivity : Activity() {
         private const val SCRUB_RELEASE_DELAY_MS = 500L
         private const val SEEK_POSITION_IGNORE_MS = 800L
         private const val SEEK_BAR_MAX = 1_000
+        private const val TIMELINE_UNAVAILABLE_FOR_PLAYER = "Timeline unavailable for this player."
         private const val PICK_LOCAL_VIDEO_REQUEST = 2001
         private const val TAG = "GlassCast"
 
