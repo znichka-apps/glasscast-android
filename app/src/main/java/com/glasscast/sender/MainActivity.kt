@@ -401,8 +401,7 @@ class MainActivity : Activity() {
                 bottomMargin = dp(8)
             }
 
-            // Future auth/license gate can be added here, but setup instructions should
-            // remain available before login.
+            // Future auth/license gate should not hide basic setup instructions.
             addView(TextView(this@MainActivity).apply {
                 text = "Set up Meta Display"
                 setTextColor(Color.WHITE)
@@ -410,46 +409,29 @@ class MainActivity : Activity() {
                 typeface = Typeface.DEFAULT_BOLD
             })
             addView(TextView(this@MainActivity).apply {
-                text = "GlassCast runs as a Web App on your Meta Ray-Ban Display glasses. First enable Developer Mode in the Meta AI app, then add the GlassCast receiver URL. After that, pair your glasses with this phone app using the session code."
+                text = "Enable Developer Mode once, then tap the button below to add GlassCast to your Meta Ray-Ban Display glasses."
                 setTextColor(color(MUTED))
                 textSize = 16f
                 setPadding(0, dp(10), 0, dp(12))
             })
 
             addView(setupSectionTitle("1. Enable Developer Mode"))
-            addView(setupBody("Developer Mode allows your Meta AI app to add Web Apps to your Meta Ray-Ban Display glasses."))
-            numberedSteps(
-                listOf(
-                    "Update the Meta AI app to the latest version.",
-                    "Update your glasses firmware in the Meta AI app if an update is available.",
-                    "Open the Meta AI app on your phone.",
-                    "Go to Settings.",
-                    "Open App Info.",
-                    "Tap the app version number five times.",
-                    "When prompted, enable Developer Mode.",
-                    "Go back to Settings after Developer Mode is enabled."
-                )
-            ).forEach { addView(it) }
-            addView(setupNote("If you do not see Developer Mode or Web Apps, make sure the Meta AI app and glasses firmware are fully updated."))
-
-            addView(setupSectionTitle("2. Add GlassCast as a Web App"))
-            addView(setupBody("After Developer Mode is enabled, add the GlassCast receiver URL to your glasses."))
             numberedSteps(
                 listOf(
                     "Open the Meta AI app.",
-                    "Go to your Meta Ray-Ban Display glasses settings.",
-                    "Open App connections.",
-                    "Choose Web Apps.",
-                    "Tap Add a Web App.",
-                    "For the app name, enter: GlassCast.",
-                    "For the URL, paste: $RECEIVER_URL",
-                    "Save or add the Web App.",
-                    "Open GlassCast from your glasses app list.",
-                    "You should see a session code on the glasses."
+                    "Go to Settings.",
+                    "Open App Info.",
+                    "Tap the app version number five times.",
+                    "Enable Developer Mode when prompted.",
+                    "Return to Settings."
                 )
             ).forEach { addView(it) }
+            addView(setupNote("If you do not see Developer Mode, update the Meta AI app and your glasses firmware first."))
 
-            addView(button("Copy Receiver URL") { copyReceiverUrl() })
+            addView(setupSectionTitle("2. Add GlassCast"))
+            addView(setupBody("After Developer Mode is enabled, tap the button below on this phone. It should open the Meta AI app and start the Web App add flow."))
+            addView(button("Add GlassCast to Meta Display") { openMetaWebAppDeepLink() })
+            addView(setupNote("After adding GlassCast, open it on your glasses and enter the session code in this app."))
             setupCopyStatusText = TextView(this@MainActivity).apply {
                 text = ""
                 setTextColor(color(PRIMARY))
@@ -458,22 +440,19 @@ class MainActivity : Activity() {
                 setPadding(0, dp(6), 0, 0)
             }
             addView(setupCopyStatusText)
-            addView(button("Open Receiver URL") { openExternalUrl(RECEIVER_URL) })
-            addView(button("View Meta Setup Docs") { openExternalUrl(META_SETUP_DOCS_URL) })
 
-            addView(setupSectionTitle("3. Pair your phone"))
+            addView(setupSectionTitle("3. Pair and cast"))
             numberedSteps(
                 listOf(
                     "Open GlassCast on your glasses.",
-                    "Find the session code shown on the glasses.",
-                    "Enter that code into this Android app.",
-                    "Tap Save or Pair.",
-                    "Paste or share a YouTube link.",
-                    "Tap Cast Video.",
-                    "The video should appear on your glasses."
+                    "Enter the session code shown on the glasses.",
+                    "Share a YouTube video or paste a supported video URL.",
+                    "Tap Cast Video."
                 )
             ).forEach { addView(it) }
             addView(setupNote("Once paired, you can share a YouTube video to GlassCast from the Android share menu."))
+
+            addView(manualFallbackSection())
 
             addView(collapsibleSection(
                 "4. Test before using glasses",
@@ -498,8 +477,11 @@ class MainActivity : Activity() {
                     "I do not see Developer Mode",
                     "Update the Meta AI app and your glasses firmware. Then open Meta AI app settings, go to App Info, and tap the app version number five times.",
                     "",
+                    "Add button does not open Meta AI",
+                    "The one-tap add button still requires Developer Mode. If the button does not open Meta AI, use the manual setup steps.",
+                    "",
                     "I do not see Web Apps",
-                    "Developer Mode may not be enabled. Enable Developer Mode first, then return to App connections.",
+                    "Update Meta AI and glasses firmware, then enable Developer Mode. After that, return to App connections.",
                     "",
                     "The receiver URL will not open",
                     "Make sure the URL is exactly $RECEIVER_URL and that your phone or glasses have internet access.",
@@ -592,10 +574,47 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun manualFallbackSection(): LinearLayout {
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, dp(4), 0, dp(6))
+        }
+        numberedSteps(
+            listOf(
+                "Open the Meta AI app.",
+                "Go to your Meta Ray-Ban Display glasses settings.",
+                "Open App connections.",
+                "Choose Web Apps.",
+                "Tap Add a Web App.",
+                "Name: GlassCast",
+                "URL: $RECEIVER_URL"
+            )
+        ).forEach { body.addView(it) }
+        body.addView(button("Copy Receiver URL") { copyReceiverUrl() })
+        body.addView(button("Open Receiver URL") { openExternalUrl(RECEIVER_URL) })
+        body.addView(button("View Meta Setup Docs") { openExternalUrl(META_SETUP_DOCS_URL) })
+        body.addView(button("View Meta Testing Docs") { openExternalUrl(META_TEST_DOCS_URL) })
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(14), 0, 0)
+            val header = button("Add manually instead") {
+                body.visibility = if (body.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            }
+            addView(header)
+            addView(body)
+        }
+    }
+
     private fun copyReceiverUrl() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("GlassCast receiver URL", RECEIVER_URL))
         setupCopyStatusText.text = "Receiver URL copied."
+    }
+
+    private fun openMetaWebAppDeepLink() {
+        openExternalUrl(META_WEB_APP_DEEP_LINK_URL)
     }
 
     private fun openExternalUrl(url: String) {
@@ -1323,10 +1342,13 @@ class MainActivity : Activity() {
         private const val RECEIVER_URL = API_BASE_URL
         private const val SESSION_ENDPOINT = "$API_BASE_URL/api/session"
         private const val STATE_ENDPOINT = "$API_BASE_URL/api/session/state"
+        private const val META_WEB_APP_DEEP_LINK_URL =
+            "https://facebook.com/fb_viewapp/web_app_deep_link?appName=GlassCast&appUrl=https%3A%2F%2Fglasscast.znichka.xyz"
         private const val META_SETUP_DOCS_URL = "https://wearables.developer.meta.com/docs/develop/webapps/setup/"
         private const val META_TEST_DOCS_URL = "https://wearables.developer.meta.com/docs/develop/webapps/test"
         private val TROUBLESHOOTING_TITLES = setOf(
             "I do not see Developer Mode",
+            "Add button does not open Meta AI",
             "I do not see Web Apps",
             "The receiver URL will not open",
             "The session code does not work",
