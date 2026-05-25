@@ -55,6 +55,8 @@ class MainActivity : Activity() {
     private lateinit var lastResponseText: TextView
     private lateinit var setupGuideContainer: LinearLayout
     private lateinit var setupCopyStatusText: TextView
+    private lateinit var setupFallbackActionsContainer: LinearLayout
+    private lateinit var manualFallbackBody: LinearLayout
     private lateinit var localVideoButton: Button
     private lateinit var localVideoStatusText: TextView
 
@@ -429,17 +431,20 @@ class MainActivity : Activity() {
             addView(setupNote("If you do not see Developer Mode, update the Meta AI app and your glasses firmware first."))
 
             addView(setupSectionTitle("2. Add GlassCast"))
-            addView(setupBody("After Developer Mode is enabled, tap the button below on this phone. It should open the Meta AI app and start the Web App add flow."))
-            addView(button("Add GlassCast to Meta Display") { openMetaWebAppDeepLink() })
-            addView(setupNote("After adding GlassCast, open it on your glasses and enter the session code in this app."))
+            addView(setupBody("After Developer Mode is enabled, tap the button below. This should open the Meta AI app and start the Web App add flow."))
+            addView(button("Add GlassCast to Meta Display") { openMetaAiAddWebAppFlow(this@MainActivity) })
             setupCopyStatusText = TextView(this@MainActivity).apply {
-                text = ""
+                text = "If Meta AI does not open, make sure the Meta AI app is installed and updated. You can also add GlassCast manually."
                 setTextColor(color(PRIMARY))
                 textSize = 15f
                 gravity = Gravity.CENTER
                 setPadding(0, dp(6), 0, 0)
             }
             addView(setupCopyStatusText)
+            setupFallbackActionsContainer = metaAiFallbackActions().apply {
+                visibility = View.GONE
+            }
+            addView(setupFallbackActionsContainer)
 
             addView(setupSectionTitle("3. Pair and cast"))
             numberedSteps(
@@ -580,6 +585,7 @@ class MainActivity : Activity() {
             visibility = View.GONE
             setPadding(0, dp(4), 0, dp(6))
         }
+        manualFallbackBody = body
         numberedSteps(
             listOf(
                 "Open the Meta AI app.",
@@ -613,8 +619,66 @@ class MainActivity : Activity() {
         setupCopyStatusText.text = "Receiver URL copied."
     }
 
-    private fun openMetaWebAppDeepLink() {
-        openExternalUrl(META_WEB_APP_DEEP_LINK_URL)
+    private fun metaAiFallbackActions(): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(6))
+            addView(button("Open Meta AI in Play Store") { openMetaAiInPlayStore() })
+            addView(button("Try browser link") { openMetaWebAppDeepLinkInBrowser() })
+            addView(button("Copy Receiver URL") { copyReceiverUrl() })
+            addView(button("Add manually instead") {
+                manualFallbackBody.visibility = View.VISIBLE
+                manualFallbackBody.requestFocus()
+            })
+        }
+
+    private fun openMetaAiAddWebAppFlow(context: Context) {
+        val deepLinkUri = buildMetaWebAppDeepLinkUri()
+        Log.d(TAG, "Launching Meta AI add flow: $deepLinkUri")
+        val intent = Intent(Intent.ACTION_VIEW, deepLinkUri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            setPackage(META_AI_PACKAGE)
+            if (context !is Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+        runCatching {
+            context.startActivity(intent)
+            setupFallbackActionsContainer.visibility = View.GONE
+            setupCopyStatusText.text = "Opening Meta AI. Developer Mode is still required to add GlassCast."
+        }.onFailure {
+            Log.d(TAG, "Meta AI launch failed", it)
+            setupCopyStatusText.text = "Could not open Meta AI. Make sure the Meta AI app is installed and updated."
+            setupFallbackActionsContainer.visibility = View.VISIBLE
+        }
+    }
+
+    private fun buildMetaWebAppDeepLinkUri(): Uri {
+        val uri = Uri.parse(META_WEBAPP_DEEP_LINK_BASE)
+            .buildUpon()
+            .appendQueryParameter("appName", GLASSCAST_APP_NAME)
+            .appendQueryParameter("appUrl", GLASSCAST_RECEIVER_URL)
+            .build()
+        Log.d(TAG, "Built Meta web app deep link: $uri")
+        return uri
+    }
+
+    private fun openMetaAiInPlayStore() {
+        val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$META_AI_PACKAGE")).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        runCatching { startActivity(marketIntent) }
+            .onFailure { openExternalUrl("https://play.google.com/store/apps/details?id=$META_AI_PACKAGE") }
+    }
+
+    private fun openMetaWebAppDeepLinkInBrowser() {
+        val uri = buildMetaWebAppDeepLinkUri()
+        Log.d(TAG, "Opening fallback browser deep link: $uri")
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure { showStatus("No browser found", isError = true) }
     }
 
     private fun openExternalUrl(url: String) {
@@ -1339,11 +1403,13 @@ class MainActivity : Activity() {
 
     companion object {
         private const val API_BASE_URL = "https://glasscast.znichka.xyz"
-        private const val RECEIVER_URL = API_BASE_URL
+        private const val META_AI_PACKAGE = "com.facebook.stella"
+        private const val GLASSCAST_APP_NAME = "GlassCast"
+        private const val GLASSCAST_RECEIVER_URL = "https://glasscast.znichka.xyz/"
+        private const val RECEIVER_URL = GLASSCAST_RECEIVER_URL
         private const val SESSION_ENDPOINT = "$API_BASE_URL/api/session"
         private const val STATE_ENDPOINT = "$API_BASE_URL/api/session/state"
-        private const val META_WEB_APP_DEEP_LINK_URL =
-            "https://facebook.com/fb_viewapp/web_app_deep_link?appName=GlassCast&appUrl=https%3A%2F%2Fglasscast.znichka.xyz"
+        private const val META_WEBAPP_DEEP_LINK_BASE = "https://facebook.com/fb_viewapp/web_app_deep_link"
         private const val META_SETUP_DOCS_URL = "https://wearables.developer.meta.com/docs/develop/webapps/setup/"
         private const val META_TEST_DOCS_URL = "https://wearables.developer.meta.com/docs/develop/webapps/test"
         private val TROUBLESHOOTING_TITLES = setOf(
