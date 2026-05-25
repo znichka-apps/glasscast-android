@@ -16,7 +16,6 @@
         android:extractNativeLibs="false"
         android:label="GlassCast"
         android:supportsRtl="true"
-        android:testOnly="true"
         android:theme="@style/Theme.GlassCast" >
         <activity
             android:name="com.glasscast.sender.MainActivity"
