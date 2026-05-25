@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.OpenableColumns
 import android.text.Editable
 import android.text.InputType
 import android.text.TextUtils
@@ -696,6 +697,10 @@ class MainActivity : Activity() {
         val sanitizedUrl = sanitizeVideoUrl(rawInput)
         Log.d(TAG, "raw input: $rawInput")
         Log.d(TAG, "sanitized URL: $sanitizedUrl")
+        if (isLocalFileUrl(sanitizedUrl)) {
+            showLocalFileMustBeServed()
+            return
+        }
         videoUrl = sanitizedUrl
         setVideoUrl(sanitizedUrl)
         if (sanitizedUrl.isBlank()) return showStatus("Missing URL", isError = true)
@@ -732,7 +737,23 @@ class MainActivity : Activity() {
         openedFromShare = openedFromLocalShare
         primaryButton.text = "Cast Video"
         localVideoButton.text = "Cast Local Video"
+        localVideoUrl = null
+        localVideoName = displayName(uri) ?: "Local video"
+        localVideoLength = -1L
 
+        if (!castAfterReady) {
+            localVideoStatusText.text = "Selected local video: $localVideoName\nReady to cast local video."
+            showStatus("Ready to cast local video.")
+            updateSessionSummary()
+            return
+        }
+
+        serveLocalVideo(uri) ?: return
+
+        castLocalVideo()
+    }
+
+    private fun serveLocalVideo(uri: Uri): String? {
         val result = runCatching { localVideoServer.serve(uri) }
             .getOrElse {
                 localVideoUri = null
@@ -740,7 +761,7 @@ class MainActivity : Activity() {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 localVideoStatusText.text = "Could not start local video stream. Make sure your phone and glasses are on the same network."
                 showStatus("Could not start local video stream. Make sure your phone and glasses are on the same network.", isError = true)
-                return
+                return null
             }
 
         localVideoUrl = result.url
@@ -751,13 +772,10 @@ class MainActivity : Activity() {
         // notification before relying on it for long background casting sessions.
         val lengthWarning = if (localVideoLength < 0) "\nVideo length is unknown, so seeking may be limited." else ""
         localVideoStatusText.text =
-            "Serving local video from this phone\n$localVideoName\nReady to cast local video.\nYour phone and glasses must be on the same Wi-Fi network.\nKeep this phone nearby while the video is playing.$lengthWarning"
+            "Selected local video: $localVideoName\nServing local video: ${result.url}\nReady to cast local video.\nYour phone and glasses must be on the same Wi-Fi network.\nKeep this phone nearby while the video is playing.$lengthWarning"
         showStatus("Ready to cast local video.")
         updateSessionSummary()
-
-        if (castAfterReady) {
-            castLocalVideo()
-        }
+        return result.url
     }
 
     private fun castLocalVideo() {
@@ -768,15 +786,14 @@ class MainActivity : Activity() {
         }
 
         val serverUrl = localVideoUrl ?: run {
-            prepareLocalVideo(uri, castAfterReady = false, openedFromLocalShare = openedFromShare)
-            localVideoUrl
+            serveLocalVideo(uri)
         } ?: return
 
         val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
         videoUrl = serverUrl
         updateLastSentUrl(serverUrl)
         localVideoStatusText.text =
-            "Serving local video from this phone\n$localVideoName\nYour phone and glasses must be on the same Wi-Fi network.\nKeep this phone nearby while the video is playing."
+            "Selected local video: $localVideoName\nServing local video: $serverUrl\nCasting local video URL: $serverUrl\nYour phone and glasses must be on the same Wi-Fi network.\nKeep this phone nearby while the video is playing."
 
         postJson(
             JSONObject()
@@ -1173,6 +1190,18 @@ class MainActivity : Activity() {
 
     private fun handleSendIntent(intent: Intent) {
         val type = intent.type.orEmpty()
+        val sharedStreamUri = streamUri(intent)
+        if (type.startsWith("video/", ignoreCase = true) || isContentUri(sharedStreamUri)) {
+            val uri = sharedStreamUri
+            if (uri == null) {
+                showStatus("Could not open shared video", isError = true)
+                return
+            }
+            takeReadPermission(uri, intent.flags)
+            prepareLocalVideo(uri, castAfterReady = false, openedFromLocalShare = true)
+            return
+        }
+
         if (type.equals("text/plain", ignoreCase = true)) {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?: intent.getStringExtra(Intent.EXTRA_SUBJECT)
@@ -1182,20 +1211,17 @@ class MainActivity : Activity() {
             Log.d(TAG, "sanitized URL: $url")
             if (url.isBlank()) {
                 showStatus("Missing URL", isError = true)
+            } else if (isLocalFileUrl(url)) {
+                val uri = Uri.parse(url)
+                if (isContentUri(uri)) {
+                    takeReadPermission(uri, intent.flags)
+                    prepareLocalVideo(uri, castAfterReady = false, openedFromLocalShare = true)
+                } else {
+                    showLocalFileMustBeServed()
+                }
             } else {
                 useSharedUrl(url)
             }
-            return
-        }
-
-        if (type.startsWith("video/", ignoreCase = true) || isContentUri(streamUri(intent))) {
-            val uri = streamUri(intent)
-            if (uri == null) {
-                showStatus("Could not open shared video", isError = true)
-                return
-            }
-            takeReadPermission(uri, intent.flags)
-            prepareLocalVideo(uri, castAfterReady = false, openedFromLocalShare = true)
         }
     }
 
@@ -1215,6 +1241,10 @@ class MainActivity : Activity() {
     }
 
     private fun useSharedUrl(url: String) {
+        if (isLocalFileUrl(url)) {
+            showLocalFileMustBeServed()
+            return
+        }
         openedFromShare = true
         setVideoUrl(url)
         primaryButton.text = "Cast Shared Video"
@@ -1304,11 +1334,33 @@ class MainActivity : Activity() {
 
     private fun isContentUri(uri: Uri?): Boolean = uri?.scheme.equals("content", ignoreCase = true)
 
+    private fun isLocalFileUrl(url: String): Boolean {
+        val scheme = runCatching { Uri.parse(url).scheme }.getOrNull()
+        return scheme.equals("content", ignoreCase = true) || scheme.equals("file", ignoreCase = true)
+    }
+
+    private fun showLocalFileMustBeServed() {
+        val message = "Local files must be served from this phone before casting."
+        showStatus(message, isError = true)
+        localVideoStatusText.text = message
+    }
+
     private fun takeReadPermission(uri: Uri, flags: Int) {
         val readFlag = flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
         if (readFlag == 0) return
         runCatching {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    private fun displayName(uri: Uri): String? {
+        val cursor = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?: return uri.lastPathSegment?.substringAfterLast('/')
+        cursor.use {
+            if (!it.moveToFirst()) return uri.lastPathSegment?.substringAfterLast('/')
+            val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index < 0 || it.isNull(index)) return uri.lastPathSegment?.substringAfterLast('/')
+            return it.getString(index)
         }
     }
 
