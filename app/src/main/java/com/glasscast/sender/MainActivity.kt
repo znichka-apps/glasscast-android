@@ -1,6 +1,8 @@
 package com.glasscast.sender
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -16,6 +18,7 @@ import android.text.TextUtils
 import android.text.TextWatcher
 import android.util.Log
 import android.view.Gravity
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.CheckBox
@@ -49,6 +52,8 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var lastSentUrlText: TextView
     private lateinit var lastResponseText: TextView
+    private lateinit var setupGuideContainer: LinearLayout
+    private lateinit var setupCopyStatusText: TextView
 
     private var videoUrl = ""
     private var lastSentUrl = ""
@@ -121,6 +126,19 @@ class MainActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
         })
 
+        content.addView(TextView(this).apply {
+            text = "by Znichka"
+            setTextColor(color(MUTED))
+            textSize = 16f
+            setPadding(0, dp(2), 0, dp(6))
+        })
+
+        content.addView(setupEntryCard())
+        setupGuideContainer = setupGuide().apply {
+            visibility = View.GONE
+        }
+        content.addView(setupGuideContainer)
+
         content.addView(sectionTitle("Saved session"))
         sessionSummary = TextView(this).apply {
             setTextColor(Color.WHITE)
@@ -151,6 +169,11 @@ class MainActivity : Activity() {
             })
         }
         content.addView(codeInput)
+        content.addView(button("Save or Pair") {
+            sessionCodeOrNull()
+                ?.let { showStatus("Ready") }
+                ?: showStatus("Missing session code", isError = true)
+        })
 
         autoCastCheck = CheckBox(this).apply {
             text = "Auto-cast shared links"
@@ -292,6 +315,256 @@ class MainActivity : Activity() {
         content.addView(lastResponseText)
 
         setContentView(root)
+    }
+
+    private fun setupEntryCard(): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(color(SURFACE))
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(18)
+                bottomMargin = dp(4)
+            }
+
+            addView(TextView(this@MainActivity).apply {
+                text = "Set up Meta Display"
+                setTextColor(Color.WHITE)
+                textSize = 21f
+                typeface = Typeface.DEFAULT_BOLD
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "Add the GlassCast receiver to your Meta Ray-Ban Display glasses."
+                setTextColor(color(MUTED))
+                textSize = 15f
+                setPadding(0, dp(6), 0, dp(10))
+            })
+            addView(button("Set up Meta Display") {
+                setupGuideContainer.visibility = View.VISIBLE
+                setupGuideContainer.requestFocus()
+            })
+        }
+
+    private fun setupGuide(): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(color(SURFACE))
+            setPadding(dp(16), dp(18), dp(16), dp(18))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(12)
+                bottomMargin = dp(8)
+            }
+
+            // Future auth/license gate can be added here, but setup instructions should
+            // remain available before login.
+            addView(TextView(this@MainActivity).apply {
+                text = "Set up Meta Display"
+                setTextColor(Color.WHITE)
+                textSize = 26f
+                typeface = Typeface.DEFAULT_BOLD
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "GlassCast runs as a Web App on your Meta Ray-Ban Display glasses. First enable Developer Mode in the Meta AI app, then add the GlassCast receiver URL. After that, pair your glasses with this phone app using the session code."
+                setTextColor(color(MUTED))
+                textSize = 16f
+                setPadding(0, dp(10), 0, dp(12))
+            })
+
+            addView(setupSectionTitle("1. Enable Developer Mode"))
+            addView(setupBody("Developer Mode allows your Meta AI app to add Web Apps to your Meta Ray-Ban Display glasses."))
+            numberedSteps(
+                listOf(
+                    "Update the Meta AI app to the latest version.",
+                    "Update your glasses firmware in the Meta AI app if an update is available.",
+                    "Open the Meta AI app on your phone.",
+                    "Go to Settings.",
+                    "Open App Info.",
+                    "Tap the app version number five times.",
+                    "When prompted, enable Developer Mode.",
+                    "Go back to Settings after Developer Mode is enabled."
+                )
+            ).forEach { addView(it) }
+            addView(setupNote("If you do not see Developer Mode or Web Apps, make sure the Meta AI app and glasses firmware are fully updated."))
+
+            addView(setupSectionTitle("2. Add GlassCast as a Web App"))
+            addView(setupBody("After Developer Mode is enabled, add the GlassCast receiver URL to your glasses."))
+            numberedSteps(
+                listOf(
+                    "Open the Meta AI app.",
+                    "Go to your Meta Ray-Ban Display glasses settings.",
+                    "Open App connections.",
+                    "Choose Web Apps.",
+                    "Tap Add a Web App.",
+                    "For the app name, enter: GlassCast.",
+                    "For the URL, paste: $RECEIVER_URL",
+                    "Save or add the Web App.",
+                    "Open GlassCast from your glasses app list.",
+                    "You should see a session code on the glasses."
+                )
+            ).forEach { addView(it) }
+
+            addView(button("Copy Receiver URL") { copyReceiverUrl() })
+            setupCopyStatusText = TextView(this@MainActivity).apply {
+                text = ""
+                setTextColor(color(PRIMARY))
+                textSize = 15f
+                gravity = Gravity.CENTER
+                setPadding(0, dp(6), 0, 0)
+            }
+            addView(setupCopyStatusText)
+            addView(button("Open Receiver URL") { openExternalUrl(RECEIVER_URL) })
+            addView(button("View Meta Setup Docs") { openExternalUrl(META_SETUP_DOCS_URL) })
+
+            addView(setupSectionTitle("3. Pair your phone"))
+            numberedSteps(
+                listOf(
+                    "Open GlassCast on your glasses.",
+                    "Find the session code shown on the glasses.",
+                    "Enter that code into this Android app.",
+                    "Tap Save or Pair.",
+                    "Paste or share a YouTube link.",
+                    "Tap Cast Video.",
+                    "The video should appear on your glasses."
+                )
+            ).forEach { addView(it) }
+            addView(setupNote("Once paired, you can share a YouTube video to GlassCast from the Android share menu."))
+
+            addView(collapsibleSection(
+                "4. Test before using glasses",
+                listOf(
+                    "You can test GlassCast in a desktop browser before using the glasses.",
+                    "1. Open $RECEIVER_URL on desktop.",
+                    "2. Open this Android app on your phone.",
+                    "3. Enter the session code shown on the desktop receiver.",
+                    "4. Paste or share a YouTube link.",
+                    "5. Tap Cast Video.",
+                    "6. Test Play/Pause, Seek, Stop, and the timeline.",
+                    "7. After desktop testing works, open GlassCast on your glasses.",
+                    "",
+                    "On a desktop browser, keyboard arrow keys can simulate the glasses D-pad style controls."
+                ),
+                listOf("View Meta Testing Docs" to META_TEST_DOCS_URL)
+            ))
+
+            addView(collapsibleSection(
+                "Troubleshooting",
+                listOf(
+                    "I do not see Developer Mode",
+                    "Update the Meta AI app and your glasses firmware. Then open Meta AI app settings, go to App Info, and tap the app version number five times.",
+                    "",
+                    "I do not see Web Apps",
+                    "Developer Mode may not be enabled. Enable Developer Mode first, then return to App connections.",
+                    "",
+                    "The receiver URL will not open",
+                    "Make sure the URL is exactly $RECEIVER_URL and that your phone or glasses have internet access.",
+                    "",
+                    "The session code does not work",
+                    "Make sure the code in this app matches the code shown on the glasses. If needed, reopen GlassCast on the glasses and try the new code.",
+                    "",
+                    "YouTube video does not play",
+                    "Use a direct YouTube watch or share link. Some private, restricted, age-gated, region-blocked, or non-embeddable videos may not play.",
+                    "",
+                    "Live video timeline is unavailable",
+                    "Live streams may not have a normal timeline. Play/Pause and Stop may still work.",
+                    "",
+                    "Local phone videos do not cast",
+                    "Local video files are not supported yet. Share a public video URL instead."
+                ),
+                emptyList()
+            ))
+
+            addView(button("I've added GlassCast") {
+                setupGuideContainer.visibility = View.GONE
+                showStatus("Ready")
+            })
+        }
+
+    private fun numberedSteps(steps: List<String>): List<TextView> =
+        steps.mapIndexed { index, step ->
+            TextView(this).apply {
+                text = "${index + 1}. $step"
+                setTextColor(Color.WHITE)
+                textSize = 16f
+                setPadding(0, dp(4), 0, dp(4))
+            }
+        }
+
+    private fun setupSectionTitle(text: String): TextView = TextView(this).apply {
+        this.text = text
+        setTextColor(Color.WHITE)
+        textSize = 20f
+        typeface = Typeface.DEFAULT_BOLD
+        setPadding(0, dp(22), 0, dp(8))
+    }
+
+    private fun setupBody(text: String): TextView = TextView(this).apply {
+        this.text = text
+        setTextColor(color(MUTED))
+        textSize = 16f
+        setPadding(0, 0, 0, dp(8))
+    }
+
+    private fun setupNote(text: String): TextView = TextView(this).apply {
+        this.text = text
+        setTextColor(color(PRIMARY))
+        textSize = 15f
+        setPadding(0, dp(8), 0, dp(4))
+    }
+
+    private fun collapsibleSection(
+        title: String,
+        lines: List<String>,
+        linkButtons: List<Pair<String, String>> = emptyList()
+    ): LinearLayout {
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, dp(4), 0, dp(6))
+        }
+        lines.forEach { line ->
+            val isHeading = line in TROUBLESHOOTING_TITLES || line == "Meta Display test:"
+            body.addView(TextView(this).apply {
+                text = line
+                setTextColor(if (isHeading) Color.WHITE else color(MUTED))
+                textSize = if (isHeading) 16f else 15f
+                typeface = if (isHeading) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                setPadding(0, if (line.isBlank()) dp(4) else dp(3), 0, dp(3))
+            })
+        }
+        linkButtons.forEach { (label, url) ->
+            body.addView(button(label) { openExternalUrl(url) })
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(14), 0, 0)
+            val header = button(title) {
+                body.visibility = if (body.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            }
+            addView(header)
+            addView(body)
+        }
+    }
+
+    private fun copyReceiverUrl() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("GlassCast receiver URL", RECEIVER_URL))
+        setupCopyStatusText.text = "Receiver URL copied."
+    }
+
+    private fun openExternalUrl(url: String) {
+        val uri = Uri.parse(url)
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure { showStatus("No browser found", isError = true) }
     }
 
     private fun castVideo() {
@@ -914,8 +1187,20 @@ class MainActivity : Activity() {
 
     companion object {
         private const val API_BASE_URL = "https://glasscast.znichka.xyz"
+        private const val RECEIVER_URL = API_BASE_URL
         private const val SESSION_ENDPOINT = "$API_BASE_URL/api/session"
         private const val STATE_ENDPOINT = "$API_BASE_URL/api/session/state"
+        private const val META_SETUP_DOCS_URL = "https://wearables.developer.meta.com/docs/develop/webapps/setup/"
+        private const val META_TEST_DOCS_URL = "https://wearables.developer.meta.com/docs/develop/webapps/test"
+        private val TROUBLESHOOTING_TITLES = setOf(
+            "I do not see Developer Mode",
+            "I do not see Web Apps",
+            "The receiver URL will not open",
+            "The session code does not work",
+            "YouTube video does not play",
+            "Live video timeline is unavailable",
+            "Local phone videos do not cast"
+        )
         private const val PREFS_NAME = "glasscast"
         private const val KEY_SESSION_CODE = "session_code"
         private const val KEY_AUTO_CAST = "auto_cast_shared_links"
