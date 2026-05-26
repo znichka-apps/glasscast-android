@@ -12,8 +12,11 @@
         <package android:name="com.facebook.stella" />
     </queries>
 
+    <!-- Android launcher icon source of truth: app/src/main/assets/brand/glasscast-icon-dark.png -->
     <application
         android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="GlassCast"
         android:supportsRtl="true"
         android:theme="@style/Theme.GlassCast">

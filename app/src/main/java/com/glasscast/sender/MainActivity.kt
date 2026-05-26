@@ -5,8 +5,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,12 +22,15 @@ import android.text.TextUtils
 import android.text.TextWatcher
 import android.util.Log
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -56,6 +62,9 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var lastSentUrlText: TextView
     private lateinit var lastResponseText: TextView
+    private lateinit var lastCommandText: TextView
+    private lateinit var debugToggleText: TextView
+    private lateinit var debugDetailsContainer: LinearLayout
     private lateinit var setupGuideContainer: LinearLayout
     private lateinit var setupCopyStatusText: TextView
     private lateinit var setupFallbackActionsContainer: LinearLayout
@@ -159,23 +168,12 @@ class MainActivity : Activity() {
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(28), dp(24), dp(28))
+            setPadding(dp(24), dp(BASE_CONTENT_TOP_PADDING), dp(24), dp(28))
         }
         root.addView(content)
+        applySystemInsetPadding(content)
 
-        content.addView(TextView(this).apply {
-            text = "GlassCast"
-            setTextColor(Color.WHITE)
-            textSize = 36f
-            typeface = Typeface.DEFAULT_BOLD
-        })
-
-        content.addView(TextView(this).apply {
-            text = "by Znichka"
-            setTextColor(color(MUTED))
-            textSize = 16f
-            setPadding(0, dp(2), 0, dp(6))
-        })
+        content.addView(brandHeader())
 
         content.addView(setupEntryCard())
         setupGuideContainer = setupGuide().apply {
@@ -185,7 +183,7 @@ class MainActivity : Activity() {
 
         content.addView(sectionTitle("Saved session"))
         sessionSummary = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(color(TEXT))
             textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
             setPadding(0, 0, 0, dp(4))
@@ -201,12 +199,12 @@ class MainActivity : Activity() {
 
         readyCard = TextView(this).apply {
             text = "Ready to cast"
-            setTextColor(Color.BLACK)
+            setTextColor(color(BG))
             textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(dp(14), dp(12), dp(14), dp(12))
-            setBackgroundColor(color(SUCCESS))
+            background = roundedDrawable(SUCCESS, radiusDp = 18, strokeColor = MINT, strokeDp = 1)
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -282,7 +280,7 @@ class MainActivity : Activity() {
 
         nowPlayingText = TextView(this).apply {
             text = "Now playing"
-            setTextColor(Color.WHITE)
+            setTextColor(color(TEXT))
             textSize = 14f
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
@@ -306,6 +304,9 @@ class MainActivity : Activity() {
             max = SEEK_BAR_MAX
             progress = 0
             isEnabled = false
+            progressTintList = ColorStateList.valueOf(color(PRIMARY))
+            progressBackgroundTintList = ColorStateList.valueOf(color(NIGHT_BLUE))
+            thumbTintList = ColorStateList.valueOf(color(STAR_GOLD))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     if (!fromUser || timelineDurationSeconds <= 0.0) return
@@ -376,23 +377,68 @@ class MainActivity : Activity() {
             setTextColor(color(MUTED))
             textSize = 16f
             gravity = Gravity.CENTER
-            setPadding(0, dp(18), 0, 0)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = roundedDrawable(SURFACE, radiusDp = 16, strokeColor = NIGHT_BLUE, strokeDp = 1)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(18)
+            }
         }
         content.addView(statusText)
 
-        lastSentUrlText = debugText("Last sent URL: ")
-        content.addView(lastSentUrlText)
-
-        lastResponseText = debugText("Last response: ")
-        content.addView(lastResponseText)
+        content.addView(debugDetailsSection())
 
         setContentView(root)
     }
 
+    private fun brandHeader(): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, 0, 0, dp(8))
+
+            addView(assetImage(BRAND_LOGO_ASSET, heightDp = 92, contentDescriptionText = "GlassCast").apply {
+                adjustViewBounds = true
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            })
+        }
+
+    private fun applySystemInsetPadding(content: View) {
+        content.setOnApplyWindowInsetsListener { view, insets ->
+            val statusBarTop = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.statusBars()).top
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetTop
+            }
+            view.setPadding(
+                dp(24),
+                (statusBarTop + dp(HEADER_BREATHING_ROOM)).coerceAtLeast(dp(BASE_CONTENT_TOP_PADDING)),
+                dp(24),
+                dp(28)
+            )
+            insets
+        }
+        content.requestApplyInsets()
+    }
+
+    private fun assetImage(assetPath: String, heightDp: Int, contentDescriptionText: String): ImageView =
+        ImageView(this).apply {
+            contentDescription = contentDescriptionText
+            val bitmap = assets.open(assetPath).use { BitmapFactory.decodeStream(it) }
+            setImageBitmap(bitmap)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(heightDp)
+            )
+        }
+
     private fun setupEntryCard(): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(color(SURFACE))
+            background = roundedDrawable(SURFACE_ALT, radiusDp = 18, strokeColor = SECONDARY, strokeDp = 1)
             setPadding(dp(16), dp(16), dp(16), dp(16))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -404,7 +450,7 @@ class MainActivity : Activity() {
 
             addView(TextView(this@MainActivity).apply {
                 text = "Set up Meta Display"
-                setTextColor(Color.WHITE)
+                setTextColor(color(TEXT))
                 textSize = 21f
                 typeface = Typeface.DEFAULT_BOLD
             })
@@ -423,7 +469,7 @@ class MainActivity : Activity() {
     private fun setupGuide(): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(color(SURFACE))
+            background = roundedDrawable(SURFACE, radiusDp = 18, strokeColor = NIGHT_BLUE, strokeDp = 1)
             setPadding(dp(16), dp(18), dp(16), dp(18))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -436,7 +482,7 @@ class MainActivity : Activity() {
             // Future auth/license gate should not hide basic setup instructions.
             addView(TextView(this@MainActivity).apply {
                 text = "Set up Meta Display"
-                setTextColor(Color.WHITE)
+                setTextColor(color(TEXT))
                 textSize = 26f
                 typeface = Typeface.DEFAULT_BOLD
             })
@@ -465,7 +511,7 @@ class MainActivity : Activity() {
             addView(button("Add GlassCast to Meta Display") { openMetaAiAddWebAppFlow(this@MainActivity) })
             setupCopyStatusText = TextView(this@MainActivity).apply {
                 text = "If Meta AI does not open, make sure the Meta AI app is installed and updated. You can also add GlassCast manually."
-                setTextColor(color(PRIMARY))
+                setTextColor(color(MINT))
                 textSize = 15f
                 gravity = Gravity.CENTER
                 setPadding(0, dp(6), 0, 0)
@@ -543,7 +589,7 @@ class MainActivity : Activity() {
         steps.mapIndexed { index, step ->
             TextView(this).apply {
                 text = "${index + 1}. $step"
-                setTextColor(Color.WHITE)
+                setTextColor(color(TEXT))
                 textSize = 16f
                 setPadding(0, dp(4), 0, dp(4))
             }
@@ -551,7 +597,7 @@ class MainActivity : Activity() {
 
     private fun setupSectionTitle(text: String): TextView = TextView(this).apply {
         this.text = text
-        setTextColor(Color.WHITE)
+        setTextColor(color(TEXT))
         textSize = 20f
         typeface = Typeface.DEFAULT_BOLD
         setPadding(0, dp(22), 0, dp(8))
@@ -566,7 +612,7 @@ class MainActivity : Activity() {
 
     private fun setupNote(text: String): TextView = TextView(this).apply {
         this.text = text
-        setTextColor(color(PRIMARY))
+        setTextColor(color(MINT))
         textSize = 15f
         setPadding(0, dp(8), 0, dp(4))
     }
@@ -585,7 +631,7 @@ class MainActivity : Activity() {
             val isHeading = line in TROUBLESHOOTING_TITLES || line == "Meta Display test:"
             body.addView(TextView(this).apply {
                 text = line
-                setTextColor(if (isHeading) Color.WHITE else color(MUTED))
+                setTextColor(if (isHeading) color(TEXT) else color(MUTED))
                 textSize = if (isHeading) 16f else 15f
                 typeface = if (isHeading) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                 setPadding(0, if (line.isBlank()) dp(4) else dp(3), 0, dp(3))
@@ -657,6 +703,43 @@ class MainActivity : Activity() {
             addView(header)
             addView(body)
         }
+    }
+
+    private fun debugDetailsSection(): LinearLayout {
+        debugDetailsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(dp(12), dp(8), dp(12), dp(10))
+            background = roundedDrawable(SURFACE, radiusDp = 14, strokeColor = NIGHT_BLUE, strokeDp = 1)
+        }
+
+        lastSentUrlText = debugText("Last sent URL: None")
+        lastCommandText = debugText("Last command: None")
+        lastResponseText = debugText("Last API response: None")
+        debugDetailsContainer.addView(lastSentUrlText)
+        debugDetailsContainer.addView(lastCommandText)
+        debugDetailsContainer.addView(lastResponseText)
+
+        debugToggleText = TextView(this).apply {
+            text = "Show debug details"
+            setTextColor(color(MUTED))
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(14), 0, dp(6))
+            setOnClickListener { toggleDebugDetails() }
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(debugToggleText)
+            addView(debugDetailsContainer)
+        }
+    }
+
+    private fun toggleDebugDetails() {
+        val show = debugDetailsContainer.visibility != View.VISIBLE
+        debugDetailsContainer.visibility = if (show) View.VISIBLE else View.GONE
+        debugToggleText.text = if (show) "Hide debug details" else "Show debug details"
     }
 
     private fun copyReceiverUrl() {
@@ -822,8 +905,9 @@ class MainActivity : Activity() {
         }
         videoUrl = sanitizedUrl
         setVideoUrl(sanitizedUrl)
-        if (sanitizedUrl.isBlank()) return showStatus("Missing URL", isError = true)
+        if (sanitizedUrl.isBlank()) return showStatus("Use a YouTube link or supported video URL", isError = true)
         updateLastSentUrl(sanitizedUrl)
+        updateLastCommand("Cast video")
 
         postJson(
             JSONObject()
@@ -948,6 +1032,7 @@ class MainActivity : Activity() {
             val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
             videoUrl = serverUrl
             updateLastSentUrl(serverUrl)
+            updateLastCommand("Cast video")
             updateLocalVideoStatus(
                 mainStatus = "Cast sent.\nKeep phone and glasses on the same Wi-Fi.",
                 servingUrl = serverUrl,
@@ -977,8 +1062,9 @@ class MainActivity : Activity() {
                 .put("code", code)
                 .put("type", "command")
                 .put("command", command),
-            successMessage = "Command sent"
+            successMessage = "Playback command sent"
         )
+        updateLastCommand(command)
     }
 
     private fun sendTimelineCommand(command: String) {
@@ -1003,13 +1089,14 @@ class MainActivity : Activity() {
 
         optimisticCurrentSeconds = clampTime(seconds, timelineDurationSeconds)
         ignorePlaybackPositionUntilMs = System.currentTimeMillis() + SEEK_POSITION_IGNORE_MS
+        updateLastCommand("seekTo ${formatTime(seconds)}")
         postJson(
             JSONObject()
                 .put("code", code)
                 .put("type", "command")
                 .put("command", "seekTo")
                 .put("time", seconds),
-            successMessage = "Command sent"
+            successMessage = "Playback command sent"
         ) {
             pollHandler.postDelayed({
                 isUserScrubbing = false
@@ -1404,7 +1491,7 @@ class MainActivity : Activity() {
             Log.d(TAG, "raw input: $sharedText")
             Log.d(TAG, "sanitized URL: $url")
             if (url.isBlank()) {
-                showStatus("Missing URL", isError = true)
+                showStatus("Use a YouTube link or supported video URL", isError = true)
             } else if (isLocalFileUrl(url)) {
                 if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
                     showUnsupportedShareType()
@@ -1447,7 +1534,7 @@ class MainActivity : Activity() {
             Log.d(TAG, "raw input: $rawInput")
             Log.d(TAG, "sanitized URL: $url")
             if (url.isBlank()) {
-                showStatus("Missing URL", isError = true)
+                showStatus("Use a YouTube link or supported video URL", isError = true)
             } else {
                 useSharedUrl(url)
             }
@@ -1641,11 +1728,11 @@ class MainActivity : Activity() {
 
     private fun input(hintText: String): EditText = EditText(this).apply {
         hint = hintText
-        setTextColor(Color.WHITE)
+        setTextColor(color(TEXT))
         setHintTextColor(color(MUTED))
         textSize = 18f
         setPadding(dp(14), dp(12), dp(14), dp(12))
-        setBackgroundColor(color(SURFACE))
+        background = roundedDrawable(SURFACE, radiusDp = 14, strokeColor = NIGHT_BLUE, strokeDp = 1)
     }
 
     private fun button(text: String, large: Boolean = false, onClick: () -> Unit): Button =
@@ -1653,18 +1740,72 @@ class MainActivity : Activity() {
             this.text = text
             textSize = if (large) 20f else 17f
             isAllCaps = false
-            setTextColor(Color.BLACK)
-            setBackgroundColor(color(if (large) PRIMARY else PRIMARY_DARK))
+            minHeight = if (large) dp(64) else dp(54)
+            elevation = dp(if (large) 4 else 2).toFloat()
+            setTextColor(color(if (large) BG else TEXT))
+            background = roundedDrawable(
+                fillColor = if (large) PRIMARY else SECONDARY,
+                radiusDp = if (large) 18 else 14,
+                strokeColor = if (large) MINT else NIGHT_BLUE,
+                strokeDp = 1
+            )
             setPadding(dp(10), dp(10), dp(10), dp(10))
             setOnClickListener {
                 clearInputFocusAndHideKeyboard()
                 onClick()
             }
+            applyButtonPressFeedback(this, large)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 if (large) dp(64) else dp(54)
             ).apply {
                 topMargin = if (large) dp(22) else dp(10)
+            }
+        }
+
+    private fun applyButtonPressFeedback(button: Button, large: Boolean) {
+        val normalElevation = dp(if (large) 4 else 2).toFloat()
+        val pressedElevation = dp(1).toFloat()
+        button.setOnTouchListener { view, event ->
+            if (!view.isEnabled) return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.animate()
+                        .scaleX(0.985f)
+                        .scaleY(0.985f)
+                        .translationY(dp(2).toFloat())
+                        .alpha(0.92f)
+                        .setDuration(BUTTON_PRESS_ANIM_MS)
+                        .start()
+                    view.elevation = pressedElevation
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .translationY(0f)
+                        .alpha(1f)
+                        .setDuration(BUTTON_RELEASE_ANIM_MS)
+                        .start()
+                    view.elevation = normalElevation
+                }
+            }
+            false
+        }
+    }
+
+    private fun roundedDrawable(
+        fillColor: String,
+        radiusDp: Int,
+        strokeColor: String? = null,
+        strokeDp: Int = 0
+    ): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(radiusDp).toFloat()
+            setColor(color(fillColor))
+            if (strokeColor != null && strokeDp > 0) {
+                setStroke(dp(strokeDp), color(strokeColor))
             }
         }
 
@@ -1691,12 +1832,22 @@ class MainActivity : Activity() {
 
     private fun updateLastSentUrl(url: String) {
         lastSentUrl = url
-        lastSentUrlText.text = "Last sent URL: $lastSentUrl"
+        if (::lastSentUrlText.isInitialized) {
+            lastSentUrlText.text = "Last sent URL: $lastSentUrl"
+        }
+    }
+
+    private fun updateLastCommand(command: String) {
+        if (::lastCommandText.isInitialized) {
+            lastCommandText.text = "Last command: $command"
+        }
     }
 
     private fun updateLastResponse(response: String) {
         lastResponse = response
-        lastResponseText.text = "Last response: $lastResponse"
+        if (::lastResponseText.isInitialized) {
+            lastResponseText.text = "Last API response: $lastResponse"
+        }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -1749,14 +1900,25 @@ class MainActivity : Activity() {
         private const val TIMELINE_UNAVAILABLE_FOR_PLAYER = "Timeline unavailable for this player."
         private const val PICK_LOCAL_VIDEO_REQUEST = 2001
         private const val TAG = "GlassCast"
+        private const val BASE_CONTENT_TOP_PADDING = 36
+        private const val HEADER_BREATHING_ROOM = 28
+        private const val BUTTON_PRESS_ANIM_MS = 70L
+        private const val BUTTON_RELEASE_ANIM_MS = 95L
 
-        private const val BG = "#101114"
-        private const val SURFACE = "#1B1D22"
-        private const val MUTED = "#B8BDC7"
-        private const val PRIMARY = "#34D399"
-        private const val PRIMARY_DARK = "#10B981"
-        private const val SUCCESS = "#34D399"
-        private const val DANGER = "#F97373"
+        private const val BRAND_LOGO_ASSET = "brand/glasscast-logo-primary-transparent.png"
+
+        private const val BG = "#020516"
+        private const val SURFACE = "#0C1326"
+        private const val SURFACE_ALT = "#172653"
+        private const val NIGHT_BLUE = "#172653"
+        private const val TEXT = "#E9EEF9"
+        private const val MUTED = "#8E9BC2"
+        private const val PRIMARY = "#32D17C"
+        private const val SECONDARY = "#5A4FCF"
+        private const val MINT = "#7EF0B2"
+        private const val STAR_GOLD = "#F6D35C"
+        private const val SUCCESS = "#32D17C"
+        private const val DANGER = "#FF8A8A"
 
         private val URL_PATTERN = Regex("""https?://[^\s<>"']+""", RegexOption.IGNORE_CASE)
     }

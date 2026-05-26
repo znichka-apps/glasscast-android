@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.glasscast.sender.app-debug-4:/values_values.arsc.flat",
+            "outputFile": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-debug-4:\\values_values.arsc.flat",
             "map": [
                 {
                     "source": "C:\\Users\\Andrey\\AndroidStudioProjects\\GlassCast\\app\\src\\main\\res\\values\\styles.xml",
@@ -37,6 +37,44 @@
                         "startOffsets": "55,110,161,211,263,320,372",
                         "endColumns": "54,50,49,51,56,51,48",
                         "endOffsets": "105,156,206,258,315,367,416"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "com.glasscast.sender.app-debug-4:/values_values.arsc.flat",
+            "map": [
+                {
+                    "source": "C:\\Users\\Andrey\\AndroidStudioProjects\\GlassCast\\app\\src\\main\\res\\values\\styles.xml",
+                    "from": {
+                        "startLines": "-1",
+                        "startColumns": "-1",
+                        "startOffsets": "-1"
+                    },
+                    "to": {
+                        "startLines": "12",
+                        "startColumns": "4",
+                        "startOffsets": "582",
+                        "endLines": "19",
+                        "endColumns": "12",
+                        "endOffsets": "1106"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Andrey\\AndroidStudioProjects\\GlassCast\\app\\src\\main\\res\\values\\colors.xml",
+                    "from": {
+                        "startLines": "10,2,11,6,7,8,9,3,4,5",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "480,55,531,267,317,369,426,110,162,218",
+                        "endColumns": "50,54,50,49,51,56,53,51,55,48",
+                        "endOffsets": "526,105,577,312,364,421,475,157,213,262"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8,9,10,11",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,106,161,212,262,314,371,425,477,533",
+                        "endColumns": "50,54,50,49,51,56,53,51,55,48",
+                        "endOffsets": "101,156,207,257,309,366,420,472,528,577"
                     }
                 }
             ]

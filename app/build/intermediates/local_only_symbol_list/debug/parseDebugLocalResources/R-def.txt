@@ -1,10 +1,15 @@
 R_DEF: Internal format may change without notice
 local
+color glasscast_accent
 color glasscast_background
 color glasscast_danger
 color glasscast_muted
 color glasscast_primary
 color glasscast_primary_dark
+color glasscast_secondary
 color glasscast_surface
+color glasscast_surface_alt
 color glasscast_text
+mipmap ic_launcher
+mipmap ic_launcher_round
 style Theme.GlassCast

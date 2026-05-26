@@ -1,0 +1,62 @@
+[
+    {
+        "merged": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-debug-4:\\mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-main-6:\\mipmap-xhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-xhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-hdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-mdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-xxxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-debug-4:\\mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-main-6:\\mipmap-xxhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-debug-4:\\mipmap-hdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-main-6:\\mipmap-hdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-xxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-debug-4:\\mipmap-mdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-main-6:\\mipmap-mdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.glasscast.sender.app-debug-4:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.glasscast.sender.app-main-6:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-debug-4:\\mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Andrey\\.gradle\\daemon\\9.4.1\\com.glasscast.sender.app-main-6:\\mipmap-xxxhdpi\\ic_launcher.png"
+    }
+]
