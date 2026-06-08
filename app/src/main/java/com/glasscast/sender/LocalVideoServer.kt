@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import android.net.Uri
 import android.provider.OpenableColumns
-import android.util.Log
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.BufferedReader
@@ -177,7 +176,7 @@ class LocalVideoServer(private val context: Context) {
 
                 writeVideo(client, video, headers["range"], method == "HEAD")
             } catch (e: Exception) {
-                Log.e(TAG, "Local video request failed", e)
+                SafeLog.e(TAG, "Local video request failed", e)
                 runCatching { writeStatus(client, 500, "Could not open selected video") }
             }
         }
@@ -186,7 +185,7 @@ class LocalVideoServer(private val context: Context) {
     private fun writeVideo(socket: Socket, video: ServedVideo, rangeHeader: String?, headOnly: Boolean) {
         val range = runCatching { parseRange(rangeHeader, video.length) }
             .getOrElse {
-                Log.e(TAG, "Could not parse range header", it)
+                SafeLog.e(TAG, "Could not parse range header", it)
                 InvalidRange
             }
         if (range == InvalidRange) {
@@ -214,7 +213,7 @@ class LocalVideoServer(private val context: Context) {
             try {
                 openVideoInput(video.uri, start)
             } catch (e: Exception) {
-                Log.e(TAG, "Could not open selected video", e)
+                SafeLog.e(TAG, "Could not open selected video", e)
                 writeStatus(socket, 500, "Could not open selected video")
                 return
             }
@@ -241,7 +240,7 @@ class LocalVideoServer(private val context: Context) {
             try {
                 copyLimited(stream, out, contentLength)
             } catch (e: Exception) {
-                Log.e(TAG, "Could not stream selected video", e)
+                SafeLog.e(TAG, "Could not stream selected video", e)
             }
         }
         out.flush()
@@ -448,7 +447,7 @@ class LocalVideoServer(private val context: Context) {
         wifiLock = manager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "GlassCast:LocalVideo").apply {
             setReferenceCounted(false)
             runCatching { acquire() }
-                .onFailure { Log.w(TAG, "Could not acquire Wi-Fi lock", it) }
+                .onFailure { SafeLog.w(TAG, "Could not acquire Wi-Fi lock", it) }
         }
     }
 
@@ -456,7 +455,7 @@ class LocalVideoServer(private val context: Context) {
         wifiLock?.let { lock ->
             if (lock.isHeld) {
                 runCatching { lock.release() }
-                    .onFailure { Log.w(TAG, "Could not release Wi-Fi lock", it) }
+                    .onFailure { SafeLog.w(TAG, "Could not release Wi-Fi lock", it) }
             }
         }
         wifiLock = null

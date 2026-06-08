@@ -20,7 +20,6 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextUtils
 import android.text.TextWatcher
-import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -818,7 +817,7 @@ class MainActivity : Activity() {
 
     private fun openMetaAiAddWebAppFlow(context: Context) {
         val deepLinkUri = buildMetaWebAppDeepLinkUri()
-        Log.d(TAG, "Launching Meta AI add flow: $deepLinkUri")
+        SafeLog.d(TAG, "Launching Meta AI add flow: $deepLinkUri")
         val intent = Intent(Intent.ACTION_VIEW, deepLinkUri).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
             setPackage(META_AI_PACKAGE)
@@ -831,7 +830,7 @@ class MainActivity : Activity() {
             setupFallbackActionsContainer.visibility = View.GONE
             setupCopyStatusText.text = "Opening Meta AI. Developer Mode is still required to add GlassCast."
         }.onFailure {
-            Log.d(TAG, "Meta AI launch failed", it)
+            SafeLog.d(TAG, "Meta AI launch failed", it)
             setupCopyStatusText.text = "Could not open Meta AI. Make sure the Meta AI app is installed and updated."
             setupFallbackActionsContainer.visibility = View.VISIBLE
         }
@@ -843,7 +842,7 @@ class MainActivity : Activity() {
             .appendQueryParameter("appName", GLASSCAST_APP_NAME)
             .appendQueryParameter("appUrl", GLASSCAST_RECEIVER_URL)
             .build()
-        Log.d(TAG, "Built Meta web app deep link: $uri")
+        SafeLog.d(TAG, "Built Meta web app deep link: $uri")
         return uri
     }
 
@@ -857,7 +856,7 @@ class MainActivity : Activity() {
 
     private fun openMetaWebAppDeepLinkInBrowser() {
         val uri = buildMetaWebAppDeepLinkUri()
-        Log.d(TAG, "Opening fallback browser deep link: $uri")
+        SafeLog.d(TAG, "Opening fallback browser deep link: $uri")
         val intent = Intent(Intent.ACTION_VIEW, uri).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
         }
@@ -893,8 +892,8 @@ class MainActivity : Activity() {
         val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
         val rawInput = urlInput.text.toString()
         val sanitizedUrl = sanitizeVideoUrl(rawInput)
-        Log.d(TAG, "raw input: $rawInput")
-        Log.d(TAG, "sanitized URL: $sanitizedUrl")
+        SafeLog.d(TAG, "raw input: $rawInput")
+        SafeLog.d(TAG, "sanitized URL: $sanitizedUrl")
         if (isLocalFileUrl(sanitizedUrl)) {
             showUnsupportedShareType()
             return
@@ -943,7 +942,7 @@ class MainActivity : Activity() {
         }
         runCatching { startActivityForResult(intent, PICK_LOCAL_VIDEO_REQUEST) }
             .onFailure {
-                Log.e(TAG, "Could not open video picker", it)
+                SafeLog.e(TAG, "Could not open video picker", it)
                 showStatus("Could not open video picker", isError = true)
             }
     }
@@ -969,7 +968,7 @@ class MainActivity : Activity() {
                 castLocalVideo()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Could not prepare local video", e)
+            SafeLog.e(TAG, "Could not prepare local video", e)
             showStatus("Could not prepare local video", isError = true)
         }
     }
@@ -981,7 +980,7 @@ class MainActivity : Activity() {
         }
         val result = runCatching { localVideoServer.serve(uri) }
             .getOrElse {
-                Log.e(TAG, "Could not start local video stream", it)
+                SafeLog.e(TAG, "Could not start local video stream", it)
                 localVideoUrl = null
                 localVideoHealthUrl = null
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -1048,7 +1047,7 @@ class MainActivity : Activity() {
                 successMessage = "Cast sent"
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Could not cast local video", e)
+            SafeLog.e(TAG, "Could not cast local video", e)
             showStatus("Could not cast local video", isError = true)
         }
     }
@@ -1112,7 +1111,7 @@ class MainActivity : Activity() {
     private fun postJson(payload: JSONObject, successMessage: String = "Sent", afterComplete: (() -> Unit)?) {
         showStatus("Sending...")
         val jsonBody = payload.toString()
-        Log.d(TAG, "JSON body sent: $jsonBody")
+        SafeLog.d(TAG, "JSON body sent: $jsonBody")
         val request = Request.Builder()
             .url(SESSION_ENDPOINT)
             .post(jsonBody.toRequestBody(jsonType))
@@ -1488,8 +1487,8 @@ class MainActivity : Activity() {
                 ?: intent.getStringExtra(Intent.EXTRA_SUBJECT)
                 ?: ""
             val url = sanitizeVideoUrl(sharedText)
-            Log.d(TAG, "raw input: $sharedText")
-            Log.d(TAG, "sanitized URL: $url")
+            SafeLog.d(TAG, "raw input: $sharedText")
+            SafeLog.d(TAG, "sanitized URL: $url")
             if (url.isBlank()) {
                 showStatus("Use a YouTube link or supported video URL", isError = true)
             } else if (isLocalFileUrl(url)) {
@@ -1531,8 +1530,8 @@ class MainActivity : Activity() {
         if (uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)) {
             val rawInput = uri.toString()
             val url = sanitizeVideoUrl(rawInput)
-            Log.d(TAG, "raw input: $rawInput")
-            Log.d(TAG, "sanitized URL: $url")
+            SafeLog.d(TAG, "raw input: $rawInput")
+            SafeLog.d(TAG, "sanitized URL: $url")
             if (url.isBlank()) {
                 showStatus("Use a YouTube link or supported video URL", isError = true)
             } else {
