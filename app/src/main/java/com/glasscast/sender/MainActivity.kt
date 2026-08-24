@@ -58,6 +58,8 @@ class MainActivity : Activity() {
     private lateinit var timelineStatusText: TextView
     private lateinit var seekBackButton: Button
     private lateinit var seekForwardButton: Button
+    private lateinit var captionsButton: Button
+    private lateinit var captionsStatusText: TextView
     private lateinit var statusText: TextView
     private lateinit var lastSentUrlText: TextView
     private lateinit var lastResponseText: TextView
@@ -90,6 +92,7 @@ class MainActivity : Activity() {
     private var localScrubSeconds = 0.0
     private var ignorePlaybackPositionUntilMs = 0L
     private var optimisticCurrentSeconds: Double? = null
+    private var captionsEnabled: Boolean? = null
 
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     private val client = OkHttpClient()
@@ -374,6 +377,16 @@ class MainActivity : Activity() {
         seekForwardButton = button("Seek +10s") { sendTimelineCommand("seekForward") }
         content.addView(seekForwardButton)
         setTimelineButtonsEnabled(false)
+        captionsButton = button("Captions") { toggleCaptions() }
+        content.addView(captionsButton)
+        captionsStatusText = TextView(this).apply {
+            text = CAPTIONS_NOT_AVAILABLE
+            setTextColor(color(MUTED))
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, 0)
+        }
+        content.addView(captionsStatusText)
         content.addView(button("Stop") { sendPlaybackCommand("stop") })
 
         statusText = TextView(this).apply {
@@ -1128,6 +1141,15 @@ class MainActivity : Activity() {
         sendPlaybackCommand(command)
     }
 
+    private fun toggleCaptions() {
+        val command = when (captionsEnabled) {
+            true -> "captionsOff"
+            false -> "captionsOn"
+            null -> "toggleCaptions"
+        }
+        sendPlaybackCommand(command)
+    }
+
     private fun sendSeekTo(seconds: Double) {
         clearInputFocusAndHideKeyboard()
         val code = sessionCodeOrNull()
@@ -1297,6 +1319,10 @@ class MainActivity : Activity() {
         val canSeek = findBoolean(stateJson, "canSeek") ?: findBoolean(json, "canSeek")
         val timelineAvailable = findBoolean(stateJson, "timelineAvailable") ?: findBoolean(json, "timelineAvailable")
         val controlsLimited = findBoolean(stateJson, "controlsLimited") ?: findBoolean(json, "controlsLimited")
+        val captionsAvailable = findBoolean(stateJson, "captionsAvailable", "hasCaptions", "subtitlesAvailable")
+            ?: findBoolean(json, "captionsAvailable", "hasCaptions", "subtitlesAvailable")
+        val captionsEnabled = findBoolean(stateJson, "captionsEnabled", "captionsOn", "subtitlesEnabled")
+            ?: findBoolean(json, "captionsEnabled", "captionsOn", "subtitlesEnabled")
         val playing = findBoolean(stateJson, "playing", "isPlaying", "paused")
             ?.let { if (stateJson.has("paused")) !it else it }
             ?: mode.equals("playing", ignoreCase = true)
@@ -1313,6 +1339,8 @@ class MainActivity : Activity() {
             canSeek = canSeek,
             timelineAvailable = timelineAvailable,
             controlsLimited = controlsLimited,
+            captionsAvailable = captionsAvailable,
+            captionsEnabled = captionsEnabled,
             title = title,
             url = url
         )
@@ -1320,6 +1348,7 @@ class MainActivity : Activity() {
 
     private fun applyPlaybackState(state: PlaybackState) {
         nowPlayingText.text = state.title?.takeIf { it.isNotBlank() } ?: "Now playing"
+        applyCaptionState(state)
 
         if (!isTimelineSeekAvailable(state)) {
             val message = if (state.mode.equals("youtube", ignoreCase = true) && !isKnownDuration(state.duration)) {
@@ -1347,6 +1376,15 @@ class MainActivity : Activity() {
             }.coerceIn(0.0, state.duration)
             currentTimeText.text = formatTime(current)
             timelineSeekBar.progress = secondsToProgress(current)
+        }
+    }
+
+    private fun applyCaptionState(state: PlaybackState) {
+        captionsEnabled = if (state.captionsAvailable == false) null else state.captionsEnabled
+        captionsStatusText.text = when {
+            state.captionsAvailable == false || state.captionsEnabled == null -> CAPTIONS_NOT_AVAILABLE
+            state.captionsEnabled -> CAPTIONS_ON
+            else -> CAPTIONS_OFF
         }
     }
 
@@ -1906,6 +1944,8 @@ class MainActivity : Activity() {
         val canSeek: Boolean?,
         val timelineAvailable: Boolean?,
         val controlsLimited: Boolean?,
+        val captionsAvailable: Boolean?,
+        val captionsEnabled: Boolean?,
         val title: String?,
         val url: String?
     )
@@ -1948,6 +1988,9 @@ class MainActivity : Activity() {
         private const val PLAYBACK_BLOCKED_MESSAGE = "The video service may block playback or timeline controls."
         private const val SESSION_EXPIRED_MESSAGE = "The receiver session expired. Open the receiver and enter its new session code."
         private const val NETWORK_ERROR_MESSAGE = "Could not reach the receiver. Check your connection and try again."
+        private const val CAPTIONS_ON = "Captions On"
+        private const val CAPTIONS_OFF = "Captions Off"
+        private const val CAPTIONS_NOT_AVAILABLE = "Not Available"
         private const val PICK_LOCAL_VIDEO_REQUEST = 2001
         private const val TAG = "GlassCast"
         private const val BASE_CONTENT_TOP_PADDING = 36
