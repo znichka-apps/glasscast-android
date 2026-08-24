@@ -2078,7 +2078,7 @@ class MainActivity : Activity() {
         private const val NETWORK_ERROR_MESSAGE = "Could not reach the receiver. Check your connection and try again."
         private const val CAPTIONS_ON = "Captions On"
         private const val CAPTIONS_OFF = "Captions Off"
-        private const val CAPTIONS_NOT_AVAILABLE = "Captions unavailable for this video"
+        private const val CAPTIONS_NOT_AVAILABLE = "Captions controlled by player/device"
         private const val PICK_LOCAL_VIDEO_REQUEST = 2001
         private const val TAG = "GlassCast"
         private const val BASE_CONTENT_TOP_PADDING = 36
