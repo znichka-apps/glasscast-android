@@ -93,6 +93,14 @@ class MainActivity : Activity() {
     private var ignorePlaybackPositionUntilMs = 0L
     private var optimisticCurrentSeconds: Double? = null
     private var captionsEnabled: Boolean? = null
+    private var captionsAvailable = false
+    private var pendingCaptionsEnabled: Boolean? = null
+    private var captionsPendingUntilMs = 0L
+    private val captionsPendingTimeout = Runnable {
+        if (pendingCaptionsEnabled == null) return@Runnable
+        clearCaptionPendingState()
+        renderCaptionState()
+    }
 
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     private val client = OkHttpClient()
@@ -387,6 +395,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(4), 0, 0)
         }
         content.addView(captionsStatusText)
+        renderCaptionState()
         content.addView(button("Stop") { sendPlaybackCommand("stop") })
 
         statusText = TextView(this).apply {
@@ -1142,12 +1151,47 @@ class MainActivity : Activity() {
     }
 
     private fun toggleCaptions() {
-        val command = when (captionsEnabled) {
-            true -> "captionsOff"
-            false -> "captionsOn"
-            null -> "toggleCaptions"
+        if (!captionsAvailable || captionsEnabled == null || pendingCaptionsEnabled != null) return
+
+        val previousState = captionsEnabled ?: return
+        val requestedState = !previousState
+        val command = if (requestedState) "captionsOn" else "captionsOff"
+        pendingCaptionsEnabled = requestedState
+        captionsPendingUntilMs = System.currentTimeMillis() + CAPTIONS_CONFIRM_TIMEOUT_MS
+        pollHandler.removeCallbacks(captionsPendingTimeout)
+        pollHandler.postDelayed(captionsPendingTimeout, CAPTIONS_CONFIRM_TIMEOUT_MS)
+        renderCaptionState()
+
+        sendPlaybackCommand(command, successMessage = "Caption change requested") {
+            if (pendingCaptionsEnabled != requestedState) return@sendPlaybackCommand
+            clearCaptionPendingState()
+            captionsEnabled = previousState
+            renderCaptionState()
         }
-        sendPlaybackCommand(command)
+    }
+
+    private fun sendPlaybackCommand(
+        command: String,
+        successMessage: String,
+        onFailure: (() -> Unit)?
+    ) {
+        clearInputFocusAndHideKeyboard()
+        val code = sessionCodeOrNull()
+        if (code == null) {
+            onFailure?.invoke()
+            showStatus(MISSING_SESSION_MESSAGE, isError = true)
+            return
+        }
+
+        postJson(
+            JSONObject()
+                .put("code", code)
+                .put("type", "command")
+                .put("command", command),
+            successMessage = successMessage,
+            onFailure = onFailure
+        )
+        updateLastCommand(command)
     }
 
     private fun sendSeekTo(seconds: Double) {
@@ -1184,7 +1228,12 @@ class MainActivity : Activity() {
         postJson(payload, successMessage = successMessage, afterComplete = null)
     }
 
-    private fun postJson(payload: JSONObject, successMessage: String = "Sent", afterComplete: (() -> Unit)?) {
+    private fun postJson(
+        payload: JSONObject,
+        successMessage: String = "Sent",
+        onFailure: (() -> Unit)? = null,
+        afterComplete: (() -> Unit)? = null
+    ) {
         showStatus("Sending...")
         val jsonBody = payload.toString()
         SafeLog.d(TAG, "Sending receiver command: ${payload.optString("type", "unknown")}")
@@ -1199,6 +1248,7 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     updateLastResponse(error)
                     showStatus(error, isError = true)
+                    onFailure?.invoke()
                     afterComplete?.invoke()
                 }
             }
@@ -1213,6 +1263,7 @@ class MainActivity : Activity() {
                             showStatus(successMessage, isSuccess = successMessage == "Cast sent")
                         } else {
                             showStatus(apiError(body, it.code), isError = true)
+                            onFailure?.invoke()
                         }
                         afterComplete?.invoke()
                     }
@@ -1380,10 +1431,46 @@ class MainActivity : Activity() {
     }
 
     private fun applyCaptionState(state: PlaybackState) {
-        captionsEnabled = if (state.captionsAvailable == false) null else state.captionsEnabled
+        captionsAvailable = state.captionsAvailable == true && state.captionsEnabled != null
+        captionsEnabled = if (captionsAvailable) state.captionsEnabled else null
+
+        val pendingState = pendingCaptionsEnabled
+        if (pendingState != null && !captionsAvailable) {
+            clearCaptionPendingState()
+        } else if (pendingState != null && captionsEnabled == pendingState) {
+            clearCaptionPendingState()
+        } else if (pendingState != null && System.currentTimeMillis() >= captionsPendingUntilMs) {
+            clearCaptionPendingState()
+        }
+        renderCaptionState()
+    }
+
+    private fun clearCaptionPendingState() {
+        pendingCaptionsEnabled = null
+        captionsPendingUntilMs = 0L
+        pollHandler.removeCallbacks(captionsPendingTimeout)
+    }
+
+    private fun renderCaptionState() {
+        if (!::captionsButton.isInitialized || !::captionsStatusText.isInitialized) return
+        val pendingState = pendingCaptionsEnabled
+        captionsButton.isEnabled = captionsAvailable && captionsEnabled != null && pendingState == null
+        captionsButton.alpha = when {
+            !captionsAvailable -> 0.45f
+            pendingState != null -> 0.7f
+            else -> 1f
+        }
+        captionsButton.text = when {
+            pendingState == true -> "Turning captions on…"
+            pendingState == false -> "Turning captions off…"
+            captionsEnabled == true -> CAPTIONS_ON
+            captionsEnabled == false -> CAPTIONS_OFF
+            else -> "Captions"
+        }
         captionsStatusText.text = when {
-            state.captionsAvailable == false || state.captionsEnabled == null -> CAPTIONS_NOT_AVAILABLE
-            state.captionsEnabled -> CAPTIONS_ON
+            !captionsAvailable -> CAPTIONS_NOT_AVAILABLE
+            pendingState != null -> "Waiting for receiver confirmation…"
+            captionsEnabled == true -> CAPTIONS_ON
             else -> CAPTIONS_OFF
         }
     }
@@ -1980,6 +2067,7 @@ class MainActivity : Activity() {
         private const val PLAYBACK_POLL_MS = 1_000L
         private const val SCRUB_RELEASE_DELAY_MS = 500L
         private const val SEEK_POSITION_IGNORE_MS = 800L
+        private const val CAPTIONS_CONFIRM_TIMEOUT_MS = 5_000L
         private const val SEEK_BAR_MAX = 1_000
         private const val TIMELINE_UNAVAILABLE_FOR_PLAYER = "Timeline controls are unavailable for this video."
         private const val MISSING_SESSION_MESSAGE = "Enter the session code shown by the receiver."
@@ -1990,7 +2078,7 @@ class MainActivity : Activity() {
         private const val NETWORK_ERROR_MESSAGE = "Could not reach the receiver. Check your connection and try again."
         private const val CAPTIONS_ON = "Captions On"
         private const val CAPTIONS_OFF = "Captions Off"
-        private const val CAPTIONS_NOT_AVAILABLE = "Not Available"
+        private const val CAPTIONS_NOT_AVAILABLE = "Captions unavailable for this video"
         private const val PICK_LOCAL_VIDEO_REQUEST = 2001
         private const val TAG = "GlassCast"
         private const val BASE_CONTENT_TOP_PADDING = 36
