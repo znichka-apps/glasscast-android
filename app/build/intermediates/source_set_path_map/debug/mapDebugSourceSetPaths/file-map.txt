@@ -1,8 +1,0 @@
-com.glasscast.sender.app-pngs-0 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\build\generated\res\pngs\debug
-com.glasscast.sender.app-resValues-1 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\build\generated\res\resValues\debug
-com.glasscast.sender.app-updated_navigation_xml-2 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\build\generated\updated_navigation_xml\debug
-com.glasscast.sender.app-packageDebugResources-3 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
-com.glasscast.sender.app-packageDebugResources-4 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
-com.glasscast.sender.app-debug-5 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\build\intermediates\merged_res\debug\mergeDebugResources
-com.glasscast.sender.app-debug-6 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\debug\res
-com.glasscast.sender.app-main-7 C:\Users\Andrey\AndroidStudioProjects\GlassCast\app\src\main\res

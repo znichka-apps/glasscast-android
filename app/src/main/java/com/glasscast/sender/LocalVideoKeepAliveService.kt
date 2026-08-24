@@ -13,6 +13,11 @@ class LocalVideoKeepAliveService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Defense in depth: v1 does not declare this service and must never serve LAN video.
+        if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             stopForegroundService()
             return START_NOT_STICKY

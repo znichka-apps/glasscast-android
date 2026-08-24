@@ -180,7 +180,7 @@ class MainActivity : Activity() {
         }
         content.addView(setupGuideContainer)
 
-        content.addView(sectionTitle("Saved session"))
+        content.addView(sectionTitle("Session code"))
         sessionSummary = TextView(this).apply {
             setTextColor(color(TEXT))
             textSize = 18f
@@ -230,8 +230,9 @@ class MainActivity : Activity() {
         content.addView(codeInput)
         content.addView(button("Save or Pair") { saveSessionCode() })
 
-        content.addView(label("Video URL"))
-        content.addView(helper("Paste or share a YouTube link, supported video page, or direct video URL."))
+        content.addView(label("Video link"))
+        content.addView(helper("Paste or share a supported video link."))
+        content.addView(helper("Some videos may block playback or timeline controls."))
         urlInput = input("https://www.youtube.com/watch?v=...").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             imeOptions = EditorInfo.IME_ACTION_DONE
@@ -254,10 +255,12 @@ class MainActivity : Activity() {
         if (ENABLE_LOCAL_VIDEO_EXPERIMENT) {
             localVideoButton = button("Cast Local Video", large = true) { castLocalVideoOrPick() }
             content.addView(localVideoButton)
-            content.addView(button("Open Health URL") { openLocalHealthUrl() })
-            content.addView(button("Copy Health URL") { copyLocalHealthUrl() })
-            content.addView(button("Open Video URL") { openLocalVideoUrl() })
-            content.addView(button("Copy Video URL") { copyLocalVideoUrl() })
+            if (BuildConfig.DEBUG) {
+                content.addView(button("Open Health URL") { openLocalHealthUrl() })
+                content.addView(button("Copy Health URL") { copyLocalHealthUrl() })
+                content.addView(button("Open Video URL") { openLocalVideoUrl() })
+                content.addView(button("Copy Video URL") { copyLocalVideoUrl() })
+            }
             content.addView(button("Stop Local Video") { stopLocalVideoServing() })
             localVideoStatusText = TextView(this).apply {
                 text = ""
@@ -266,7 +269,9 @@ class MainActivity : Activity() {
                 setPadding(0, dp(8), 0, dp(2))
             }
             content.addView(localVideoStatusText)
-            content.addView(localVideoDebugSection())
+            if (BuildConfig.DEBUG) {
+                content.addView(localVideoDebugSection())
+            }
         }
 
         content.addView(TextView(this).apply {
@@ -347,7 +352,7 @@ class MainActivity : Activity() {
         content.addView(timeRow)
 
         timelineStatusText = TextView(this).apply {
-            text = "Timeline unavailable"
+            text = TIMELINE_UNAVAILABLE_FOR_PLAYER
             setTextColor(color(MUTED))
             textSize = 14f
             gravity = Gravity.CENTER
@@ -387,7 +392,10 @@ class MainActivity : Activity() {
         }
         content.addView(statusText)
 
-        content.addView(debugDetailsSection())
+        content.addView(aboutSettingsSection())
+        if (BuildConfig.DEBUG) {
+            content.addView(debugDetailsSection())
+        }
 
         setContentView(root)
     }
@@ -454,7 +462,7 @@ class MainActivity : Activity() {
                 typeface = Typeface.DEFAULT_BOLD
             })
             addView(TextView(this@MainActivity).apply {
-                text = "Add the GlassCast receiver to your Meta Ray-Ban Display glasses."
+                text = "Open the receiver on your glasses."
                 setTextColor(color(MUTED))
                 textSize = 15f
                 setPadding(0, dp(6), 0, dp(10))
@@ -524,9 +532,9 @@ class MainActivity : Activity() {
             addView(setupSectionTitle("3. Pair and cast"))
             numberedSteps(
                 listOf(
-                    "Open GlassCast on your glasses.",
+                    "Open the receiver on your glasses.",
                     "Enter the session code shown on the glasses.",
-                    "Share a YouTube video or paste a supported video URL.",
+                    "Paste or share a supported video link.",
                     "Tap Cast Video."
                 )
             ).forEach { addView(it) }
@@ -704,6 +712,41 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun aboutSettingsSection(): LinearLayout {
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(dp(14), dp(8), dp(14), dp(14))
+            background = roundedDrawable(SURFACE, radiusDp = 14, strokeColor = NIGHT_BLUE, strokeDp = 1)
+
+            addView(TextView(this@MainActivity).apply {
+                text = "GlassCast"
+                setTextColor(color(TEXT))
+                textSize = 22f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, dp(4), 0, dp(6))
+            })
+            addView(setupBody(APP_DESCRIPTION))
+            addView(setupBody("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"))
+            addView(setupBody("Receiver: $RECEIVER_URL"))
+            addView(setupBody("Support: $SUPPORT_EMAIL"))
+            addView(button("Open receiver") { openExternalUrl(RECEIVER_URL) })
+            addView(button("Website") { openExternalUrl(WEBSITE_URL) })
+            addView(button("Privacy Policy") { openExternalUrl(PRIVACY_POLICY_URL) })
+            addView(button("Terms of Service") { openExternalUrl(TERMS_OF_SERVICE_URL) })
+            addView(button("Email support") { openSupportEmail() })
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(18), 0, 0)
+            addView(button("About & settings") {
+                body.visibility = if (body.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            })
+            addView(body)
+        }
+    }
+
     private fun debugDetailsSection(): LinearLayout {
         debugDetailsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -866,11 +909,21 @@ class MainActivity : Activity() {
 
     private fun openExternalUrl(url: String) {
         val uri = Uri.parse(url)
+        if (uri.scheme != "https" && uri.scheme != "http") {
+            showStatus("Could not open link", isError = true)
+            return
+        }
         val intent = Intent(Intent.ACTION_VIEW, uri).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
         }
         runCatching { startActivity(intent) }
             .onFailure { showStatus("No browser found", isError = true) }
+    }
+
+    private fun openSupportEmail() {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:$SUPPORT_EMAIL"))
+        runCatching { startActivity(intent) }
+            .onFailure { showStatus("No email app found", isError = true) }
     }
 
     private fun saveSessionCode() {
@@ -889,11 +942,11 @@ class MainActivity : Activity() {
 
     private fun castVideo() {
         clearInputFocusAndHideKeyboard()
-        val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
+        val code = sessionCodeOrNull()
+            ?: return showStatus(MISSING_SESSION_MESSAGE, isError = true)
         val rawInput = urlInput.text.toString()
         val sanitizedUrl = sanitizeVideoUrl(rawInput)
-        SafeLog.d(TAG, "raw input: $rawInput")
-        SafeLog.d(TAG, "sanitized URL: $sanitizedUrl")
+        SafeLog.d(TAG, "Video link normalization: ${if (sanitizedUrl.isBlank()) "rejected" else "accepted"}")
         if (isLocalFileUrl(sanitizedUrl)) {
             showUnsupportedShareType()
             return
@@ -904,7 +957,8 @@ class MainActivity : Activity() {
         }
         videoUrl = sanitizedUrl
         setVideoUrl(sanitizedUrl)
-        if (sanitizedUrl.isBlank()) return showStatus("Use a YouTube link or supported video URL", isError = true)
+        if (rawInput.isBlank()) return showStatus(MISSING_URL_MESSAGE, isError = true)
+        if (sanitizedUrl.isBlank()) return showStatus(UNSUPPORTED_LINK_MESSAGE, isError = true)
         updateLastSentUrl(sanitizedUrl)
         updateLastCommand("Cast video")
 
@@ -1028,7 +1082,7 @@ class MainActivity : Activity() {
                 return
             }
 
-            val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
+            val code = sessionCodeOrNull() ?: return showStatus(MISSING_SESSION_MESSAGE, isError = true)
             videoUrl = serverUrl
             updateLastSentUrl(serverUrl)
             updateLastCommand("Cast video")
@@ -1054,7 +1108,7 @@ class MainActivity : Activity() {
 
     private fun sendPlaybackCommand(command: String) {
         clearInputFocusAndHideKeyboard()
-        val code = sessionCodeOrNull() ?: return showStatus("Missing session code", isError = true)
+        val code = sessionCodeOrNull() ?: return showStatus(MISSING_SESSION_MESSAGE, isError = true)
 
         postJson(
             JSONObject()
@@ -1079,7 +1133,7 @@ class MainActivity : Activity() {
         val code = sessionCodeOrNull()
         if (code == null) {
             isUserScrubbing = false
-            return showStatus("Missing session code", isError = true)
+            return showStatus(MISSING_SESSION_MESSAGE, isError = true)
         }
         if (!timelineSeekAvailable || !isKnownDuration(timelineDurationSeconds)) {
             isUserScrubbing = false
@@ -1111,7 +1165,7 @@ class MainActivity : Activity() {
     private fun postJson(payload: JSONObject, successMessage: String = "Sent", afterComplete: (() -> Unit)?) {
         showStatus("Sending...")
         val jsonBody = payload.toString()
-        SafeLog.d(TAG, "JSON body sent: $jsonBody")
+        SafeLog.d(TAG, "Sending receiver command: ${payload.optString("type", "unknown")}")
         val request = Request.Builder()
             .url(SESSION_ENDPOINT)
             .post(jsonBody.toRequestBody(jsonType))
@@ -1119,7 +1173,7 @@ class MainActivity : Activity() {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                val error = "Error: ${e.localizedMessage ?: "network failure"}"
+                val error = NETWORK_ERROR_MESSAGE
                 runOnUiThread {
                     updateLastResponse(error)
                     showStatus(error, isError = true)
@@ -1147,7 +1201,7 @@ class MainActivity : Activity() {
 
     private fun startPlaybackPolling() {
         if (normalizeSessionCode(codeInput.text.toString()).isBlank()) {
-            showTimelineUnavailable("Timeline unavailable")
+            showTimelineUnavailable(TIMELINE_UNAVAILABLE_FOR_PLAYER)
             return
         }
         if (isPolling) return
@@ -1158,7 +1212,7 @@ class MainActivity : Activity() {
     private fun restartPlaybackPolling() {
         if (normalizeSessionCode(codeInput.text.toString()).isBlank()) {
             stopPlaybackPolling()
-            showTimelineUnavailable("Timeline unavailable")
+            showTimelineUnavailable(TIMELINE_UNAVAILABLE_FOR_PLAYER)
             return
         }
         if (!isPolling) {
@@ -1178,7 +1232,7 @@ class MainActivity : Activity() {
     private fun fetchPlaybackState() {
         val code = normalizeSessionCode(codeInput.text.toString())
         if (code.isBlank()) {
-            runOnUiThread { showTimelineUnavailable("Timeline unavailable") }
+            runOnUiThread { showTimelineUnavailable(TIMELINE_UNAVAILABLE_FOR_PLAYER) }
             return
         }
 
@@ -1197,7 +1251,7 @@ class MainActivity : Activity() {
                 if (fallbackToSessionEndpoint) {
                     fetchPlaybackStateFrom("$SESSION_ENDPOINT?code=${Uri.encode(code)}", fallbackToSessionEndpoint = false)
                 } else {
-                    runOnUiThread { showStatus("Error: playback state unavailable", isError = true) }
+                    runOnUiThread { showStatus(NETWORK_ERROR_MESSAGE, isError = true) }
                 }
             }
 
@@ -1208,7 +1262,7 @@ class MainActivity : Activity() {
                         if (fallbackToSessionEndpoint) {
                             fetchPlaybackStateFrom("$SESSION_ENDPOINT?code=${Uri.encode(code)}", fallbackToSessionEndpoint = false)
                         } else {
-                            runOnUiThread { showStatus("Error: playback state unavailable", isError = true) }
+                            runOnUiThread { showStatus(apiError(body, it.code), isError = true) }
                         }
                         return
                     }
@@ -1216,7 +1270,7 @@ class MainActivity : Activity() {
                     val state = runCatching { parsePlaybackState(JSONObject(body)) }.getOrNull()
                     runOnUiThread {
                         if (state == null) {
-                            showTimelineUnavailable("Timeline unavailable")
+                            showTimelineUnavailable(TIMELINE_UNAVAILABLE_FOR_PLAYER)
                         } else {
                             applyPlaybackState(state)
                         }
@@ -1460,15 +1514,16 @@ class MainActivity : Activity() {
         (value.startsWith("{") && value.endsWith("}")) || (value.startsWith("[") && value.endsWith("]"))
 
     private fun apiError(body: String, statusCode: Int): String {
-        val message = runCatching {
-            val json = JSONObject(body)
-            json.optString("error").ifBlank { json.optString("message") }
-        }.getOrNull()
-
-        return if (!message.isNullOrBlank()) {
-            "Error: $message"
-        } else {
-            "Error: HTTP $statusCode"
+        SafeLog.d(TAG, "Receiver rejected request: HTTP $statusCode; response present=${body.isNotBlank()}")
+        val normalizedBody = body.lowercase()
+        val describesExpiredSession = "session" in normalizedBody &&
+            ("expired" in normalizedBody || "not found" in normalizedBody || "invalid" in normalizedBody)
+        if (describesExpiredSession) return SESSION_EXPIRED_MESSAGE
+        return when (statusCode) {
+            404, 410 -> SESSION_EXPIRED_MESSAGE
+            400, 422 -> "The receiver could not use this link. $PLAYBACK_BLOCKED_MESSAGE"
+            401, 403 -> "The receiver rejected this request. Check the session code and try again."
+            else -> "The receiver returned an error (HTTP $statusCode). Try again."
         }
     }
 
@@ -1487,10 +1542,9 @@ class MainActivity : Activity() {
                 ?: intent.getStringExtra(Intent.EXTRA_SUBJECT)
                 ?: ""
             val url = sanitizeVideoUrl(sharedText)
-            SafeLog.d(TAG, "raw input: $sharedText")
-            SafeLog.d(TAG, "sanitized URL: $url")
+            SafeLog.d(TAG, "Shared video link normalization: ${if (url.isBlank()) "rejected" else "accepted"}")
             if (url.isBlank()) {
-                showStatus("Use a YouTube link or supported video URL", isError = true)
+                showStatus(if (sharedText.isBlank()) MISSING_URL_MESSAGE else UNSUPPORTED_LINK_MESSAGE, isError = true)
             } else if (isLocalFileUrl(url)) {
                 if (!ENABLE_LOCAL_VIDEO_EXPERIMENT) {
                     showUnsupportedShareType()
@@ -1526,17 +1580,18 @@ class MainActivity : Activity() {
     }
 
     private fun handleViewIntent(intent: Intent) {
-        val uri = intent.data ?: return
+        val uri = intent.data ?: return showStatus(MISSING_URL_MESSAGE, isError = true)
         if (uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)) {
             val rawInput = uri.toString()
             val url = sanitizeVideoUrl(rawInput)
-            SafeLog.d(TAG, "raw input: $rawInput")
-            SafeLog.d(TAG, "sanitized URL: $url")
+            SafeLog.d(TAG, "Opened video link normalization: ${if (url.isBlank()) "rejected" else "accepted"}")
             if (url.isBlank()) {
-                showStatus("Use a YouTube link or supported video URL", isError = true)
+                showStatus(UNSUPPORTED_LINK_MESSAGE, isError = true)
             } else {
                 useSharedUrl(url)
             }
+        } else {
+            showStatus(UNSUPPORTED_LINK_MESSAGE, isError = true)
         }
     }
 
@@ -1553,7 +1608,7 @@ class MainActivity : Activity() {
 
         val code = normalizeSessionCode(codeInput.text.toString())
         if (code.isBlank()) {
-            showStatus("Missing session code", isError = true)
+            showStatus(MISSING_SESSION_MESSAGE, isError = true)
             return
         }
 
@@ -1561,22 +1616,7 @@ class MainActivity : Activity() {
         showStatus("Ready to cast")
     }
 
-    private fun sanitizeVideoUrl(input: String): String {
-        val unquoted = input.trim().trimSurroundingQuotes()
-        val url = URL_PATTERN.find(unquoted)?.value ?: unquoted
-        return url.trim().trimEnd(')', ']', '}', ',', ';', '"', '\'')
-    }
-
-    private fun String.trimSurroundingQuotes(): String {
-        if (length < 2) return this
-        val first = first()
-        val last = last()
-        return if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
-            substring(1, length - 1).trim()
-        } else {
-            this
-        }
-    }
+    private fun sanitizeVideoUrl(input: String): String = SupportedLinkNormalizer.normalize(input).orEmpty()
 
     private fun sessionCodeOrNull(): String? {
         val code = normalizeSessionCode(codeInput.text.toString())
@@ -1607,7 +1647,7 @@ class MainActivity : Activity() {
         val code = normalizeSessionCode(codeInput.text.toString())
         if (code.isBlank()) {
             sessionSummary.text = "No saved session"
-            readySummary.text = "Open https://glasscast.znichka.xyz and enter the receiver session code."
+            readySummary.text = "Open the receiver on your glasses, then enter its session code."
             readyCard.visibility = View.GONE
         } else {
             sessionSummary.text = "Paired with session $code"
@@ -1643,7 +1683,7 @@ class MainActivity : Activity() {
     }
 
     private fun showUnsupportedShareType() {
-        showStatus("This share type is not supported yet.", isError = true)
+        showStatus(UNSUPPORTED_LINK_MESSAGE, isError = true)
     }
 
     private fun updateLocalVideoStatus(
@@ -1657,10 +1697,10 @@ class MainActivity : Activity() {
         } else {
             ""
         }
-        val healthSummary = healthUrl?.let { "\nHealth URL: $it" }.orEmpty()
-        val videoSummary = servingUrl?.let { "\nVideo URL: $it" }.orEmpty()
+        val healthSummary = if (BuildConfig.DEBUG) healthUrl?.let { "\nHealth URL: $it" }.orEmpty() else ""
+        val videoSummary = if (BuildConfig.DEBUG) servingUrl?.let { "\nVideo URL: $it" }.orEmpty() else ""
         localVideoStatusText.text = "$mainStatus\nIf the receiver cannot play local video, make sure your phone and glasses are on the same Wi-Fi network.$healthSummary$videoSummary"
-        localVideoDebugText.text = buildString {
+        if (BuildConfig.DEBUG && ::localVideoDebugText.isInitialized) localVideoDebugText.text = buildString {
             append("Selected local video: ")
             append(if (localVideoName.isBlank()) "None" else localVideoName)
             append('\n')
@@ -1876,6 +1916,11 @@ class MainActivity : Activity() {
         private const val GLASSCAST_APP_NAME = "GlassCast"
         private const val GLASSCAST_RECEIVER_URL = "https://glasscast.znichka.xyz/"
         private const val RECEIVER_URL = GLASSCAST_RECEIVER_URL
+        private const val WEBSITE_URL = "https://www.znichka.xyz/"
+        private const val PRIVACY_POLICY_URL = "https://www.znichka.xyz/privacy-policy"
+        private const val TERMS_OF_SERVICE_URL = "https://www.znichka.xyz/terms-of-service"
+        private const val SUPPORT_EMAIL = "hello@znichka.xyz"
+        private const val APP_DESCRIPTION = "Send supported video links from your phone to a receiver designed for smart-glasses displays."
         private const val SESSION_ENDPOINT = "$API_BASE_URL/api/session"
         private const val STATE_ENDPOINT = "$API_BASE_URL/api/session/state"
         private const val META_WEBAPP_DEEP_LINK_BASE = "https://facebook.com/fb_viewapp/web_app_deep_link"
@@ -1896,7 +1941,13 @@ class MainActivity : Activity() {
         private const val SCRUB_RELEASE_DELAY_MS = 500L
         private const val SEEK_POSITION_IGNORE_MS = 800L
         private const val SEEK_BAR_MAX = 1_000
-        private const val TIMELINE_UNAVAILABLE_FOR_PLAYER = "Timeline unavailable for this player."
+        private const val TIMELINE_UNAVAILABLE_FOR_PLAYER = "Timeline controls are unavailable for this video."
+        private const val MISSING_SESSION_MESSAGE = "Enter the session code shown by the receiver."
+        private const val MISSING_URL_MESSAGE = "Paste or share a supported video link."
+        private const val UNSUPPORTED_LINK_MESSAGE = "This link type isn't supported. Use an http or https video link."
+        private const val PLAYBACK_BLOCKED_MESSAGE = "The video service may block playback or timeline controls."
+        private const val SESSION_EXPIRED_MESSAGE = "The receiver session expired. Open the receiver and enter its new session code."
+        private const val NETWORK_ERROR_MESSAGE = "Could not reach the receiver. Check your connection and try again."
         private const val PICK_LOCAL_VIDEO_REQUEST = 2001
         private const val TAG = "GlassCast"
         private const val BASE_CONTENT_TOP_PADDING = 36
@@ -1919,6 +1970,5 @@ class MainActivity : Activity() {
         private const val SUCCESS = "#32D17C"
         private const val DANGER = "#FF8A8A"
 
-        private val URL_PATTERN = Regex("""https?://[^\s<>"']+""", RegexOption.IGNORE_CASE)
     }
 }

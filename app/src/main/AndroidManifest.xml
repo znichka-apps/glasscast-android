@@ -2,11 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <queries>
         <package android:name="com.facebook.stella" />
@@ -34,6 +29,8 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
+            <!-- Intentionally broad so supported web video links can use "Open with GlassCast".
+                 MainActivity accepts only http/https and leaves unsupported-link feedback in-app. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -43,10 +40,8 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".LocalVideoKeepAliveService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
+        <!-- LocalVideoKeepAliveService is intentionally not declared for v1. Local/LAN video
+             serving is disabled and must not add foreground-service or Wi-Fi permissions. -->
     </application>
 
 </manifest>
